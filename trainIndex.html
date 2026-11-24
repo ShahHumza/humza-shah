@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Iron Lines — free train route board game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--panel:rgba(16,44,32,.78);--panel2:rgba(28,70,50,.9);--gold:#d4af50;--gold2:#f2dc94;--text:#f6efdc;--muted:#9db5a5;--line:rgba(212,175,80,.22);--bad:#e0605a}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  background:radial-gradient(1200px 700px at 15% -10%,#1f5c40 0%,transparent 60%),radial-gradient(900px 600px at 110% 110%,#173f2d,transparent 60%),#07170f;background-attachment:fixed}
+h1,h2,h3{font-family:Cinzel,Georgia,serif;color:var(--gold2);margin:.2em 0;letter-spacing:.02em}
+a{color:var(--gold2)}
+button{font:inherit;font-weight:700;cursor:pointer;border:0;border-radius:11px;padding:.6em 1em;color:#24190a;
+  background:linear-gradient(180deg,#f4d97e,#d1a93f 55%,#b88c2c);box-shadow:0 3px 0 #7a5a17,0 8px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.6);transition:transform .08s,filter .15s}
+button:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.07)}
+button:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #7a5a17,0 3px 8px rgba(0,0,0,.35)}
+button.ghost{background:rgba(255,255,255,.05);color:var(--gold2);box-shadow:inset 0 0 0 1px var(--line)}
+button.ghost:hover:not(:disabled){background:rgba(212,175,80,.12)}
+button.sm{padding:.32em .7em;font-size:.84em;border-radius:9px}
+button:disabled{opacity:.33;cursor:not-allowed;filter:grayscale(.6)}
+button.on{box-shadow:0 0 0 2px #fff,0 0 18px rgba(242,220,148,.7)}
+input,select{font:inherit;background:rgba(0,0,0,.28);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:.55em .7em;outline:none}
+input:focus,select:focus{border-color:var(--gold)}
+.top{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:rgba(6,20,13,.65);backdrop-filter:blur(10px);position:sticky;top:0;z-index:10}
+.brand{font-family:Cinzel,serif;font-weight:800;font-size:1.35em;color:var(--gold2);text-decoration:none;letter-spacing:.06em}
+.topr{display:flex;gap:14px;align-items:center}
+.iconbtn{background:none;box-shadow:none;color:var(--gold2);font-size:1.25em;padding:.1em .3em}
+.muted{color:var(--muted);font-size:.9em}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:13px;box-shadow:0 12px 32px rgba(0,0,0,.28);backdrop-filter:blur(8px)}
+.lbl{font-size:.72em;color:var(--muted);margin:10px 0 5px;text-transform:uppercase;letter-spacing:.09em;font-weight:700}
+.status{font-weight:700;color:var(--gold2);font-size:1.02em}
+/* home */
+.wrap{max-width:960px;margin:0 auto;padding:20px}
+.hero{position:relative;text-align:center;padding:56px 10px 36px;overflow:hidden;border-radius:26px;margin-bottom:14px;
+  background:radial-gradient(circle at 50% 40%,#2b86b5,#12547d 55%,#0a3150);box-shadow:inset 0 0 90px rgba(0,0,0,.5),0 20px 50px rgba(0,0,0,.4)}
+.hero h1{font-size:clamp(44px,9vw,86px);margin:0;position:relative;text-shadow:0 6px 30px rgba(0,0,0,.6),0 0 40px rgba(212,175,80,.35)}
+.hero p{position:relative;color:#e9f3ee;font-size:1.1em;margin:6px 0 0}
+.fhex{position:absolute;width:70px;height:80px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);opacity:.32;animation:float 9s ease-in-out infinite alternate}
+@keyframes float{from{transform:translateY(0) rotate(0)}to{transform:translateY(-22px) rotate(12deg)}}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.card h3{margin-top:0}
+table.rules td{padding:5px 10px;border-bottom:1px solid var(--line);font-size:.92em}
+/* game */
+body.ingame{overflow:hidden}
+#game{position:relative;height:calc(100dvh - 53px);padding:10px}
+#boardarea{position:absolute;inset:10px;border-radius:24px;overflow:hidden;
+  background:radial-gradient(circle at 50% 45%,#3197c7 0%,#1a6795 42%,#0c3657 100%);box-shadow:inset 0 0 100px rgba(0,0,0,.5),0 20px 50px rgba(0,0,0,.4)}
+#boardarea::before{content:'';position:absolute;inset:-20%;pointer-events:none;
+  background:repeating-radial-gradient(circle at 50% 45%,rgba(255,255,255,.045) 0 2px,transparent 3px 34px);animation:swell 7s ease-in-out infinite alternate}
+@keyframes swell{from{transform:scale(1);opacity:.6}to{transform:scale(1.06);opacity:1}}
+#boardarea{--sl:300px;--st:58px}
+#boardarea svg{position:absolute;left:var(--sl);top:var(--st);width:calc(100% - 2*var(--sl));height:calc(100% - var(--st) - 8px)}
+.hud{position:absolute;z-index:3}
+.pill{background:rgba(8,28,20,.84);border:1px solid var(--line);border-radius:16px;padding:9px 12px;backdrop-filter:blur(8px);box-shadow:0 10px 26px rgba(0,0,0,.4)}
+.col{position:absolute;top:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:3;pointer-events:none;min-height:0}
+.col>*{pointer-events:auto}
+#colL{left:20px;align-items:flex-start;max-width:min(520px,calc(50% - 30px))}
+#colR{right:20px;width:280px;align-items:stretch}
+.colspacer{flex:1;pointer-events:none!important}
+#statuspill{display:flex;align-items:center;gap:14px}
+#plist{width:100%;flex:0 1 auto;max-height:52%;min-height:0;overflow-y:auto;padding:6px}
+#bpanel{width:min(500px,100%)}#bpanel:empty{display:none}
+#hud-top{top:20px;left:50%;transform:translateX(-50%);width:min(440px,calc(100% - 620px));min-width:280px;display:flex;flex-direction:column;gap:8px;max-height:45%;overflow-y:auto}
+.status-pill .status{font-size:.95em}
+.prompt{border-color:var(--gold);color:var(--gold2);font-weight:700;text-align:center;animation:slidedown .3s ease}
+.prompt div+div{margin-top:4px}
+.offer{animation:slidedown .3s ease}
+.offer.hot{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 10px 30px rgba(0,0,0,.5)}
+.offer .hand{margin:0;gap:6px}
+.orow{display:flex;align-items:center;gap:7px;margin-top:7px;flex-wrap:wrap;font-size:.9em}
+.oname{font-weight:600;min-width:70px}
+.ok{color:#8dffa6;font-weight:700}.no{color:#ff9d96}
+.tradebox{animation:slideup .25s ease;background:rgba(10,32,23,.95)}
+.piles{display:flex;gap:10px;align-items:stretch;margin:8px 0}
+.pile{flex:1;min-height:70px;border:1.5px dashed rgba(242,220,148,.35);border-radius:12px;padding:6px 8px;background:rgba(0,0,0,.2)}
+.pile .hand{margin-top:8px;gap:8px}
+.plbl{font-size:.7em;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;font-weight:800}
+.ph{color:var(--muted);font-size:.8em;align-self:center}
+.arrow{align-self:center;font-size:1.4em;color:var(--gold2)}
+.reqrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.req{font-size:1.25em;padding:.25em .55em}
+@keyframes slideup{from{opacity:0;transform:translateY(16px)}}
+@keyframes slidedown{from{opacity:0;transform:translateY(-12px)}}
+.rollbtn{grid-column:1/-1;width:100%;padding:14px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:1.2em;animation:glow 1.4s ease-in-out infinite alternate}
+.rollbtn span{font-size:1.5em;line-height:1}
+@keyframes glow{from{box-shadow:0 3px 0 #7a5a17,0 0 0 rgba(242,220,148,0)}to{box-shadow:0 3px 0 #7a5a17,0 0 30px rgba(242,220,148,.75)}}
+.fab{top:10px;right:10px;width:46px;height:46px;border-radius:50%;padding:0;display:none;place-items:center;font-size:1.3em}
+.dotn{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;padding:0 4px}
+.fab .dotn{position:absolute;top:-3px;right:-3px}
+.winwrap{position:absolute;inset:0;display:grid;place-items:center;z-index:6;background:rgba(0,0,0,.35)}
+/* dock */
+.dockbox{background:rgba(8,28,20,.84);border:1px solid var(--line);border-radius:16px;padding:9px 12px;backdrop-filter:blur(8px);box-shadow:0 10px 26px rgba(0,0,0,.4)}
+#handbar{max-width:100%}
+#handbar .hand{margin:0;flex-wrap:nowrap;overflow-x:auto;padding:9px 9px 6px 2px}
+.handmeta{font-size:.74em;margin-top:2px}
+#actions{display:grid;grid-template-columns:repeat(6,62px);gap:6px;padding:7px}
+.abtn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;border-radius:11px;line-height:1.1}
+.abtn span{font-size:1.2em}.abtn small{font-size:.7em;font-weight:800}.abtn i{font-style:normal;font-size:.55em;letter-spacing:-1px;white-space:nowrap}
+.abtn.end:not(:disabled){background:linear-gradient(180deg,#8be09a,#3aa35c);box-shadow:0 3px 0 #1d5e31,0 8px 18px rgba(0,0,0,.35)}
+#bank{display:flex;flex-direction:row;align-items:center;gap:8px;width:250px;padding:7px 10px}
+#bank .hand{gap:5px;margin:0;flex-wrap:nowrap}
+#bank .rcard.mini{width:26px;height:36px;font-size:13px;border-radius:6px}#bank .rcard.mini .n{min-width:17px;height:17px;font-size:10px;top:-7px;right:-6px}#bank .plbl{font-size:.62em}
+#mplayers{display:none}
+.htotal{flex:none;width:58px;height:76px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.35);border:2px solid var(--gold);box-shadow:inset 0 0 14px rgba(212,175,80,.25);position:relative}
+.htotal b{font-family:Cinzel,serif;font-size:1.9em;line-height:1;color:var(--gold2)}
+.htotal span{font-size:.62em;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
+.htotal i{position:absolute;bottom:-9px;font-style:normal;font-size:9px;font-weight:800;background:var(--bad);color:#fff;padding:1px 5px;border-radius:6px;white-space:nowrap}
+.htotal.danger{border-color:var(--bad);box-shadow:inset 0 0 14px rgba(224,96,90,.35),0 0 14px rgba(224,96,90,.4);animation:tpulse .8s ease-in-out infinite alternate}
+.htotal.danger b{color:#ffb3ad}
+#boardarea svg{cursor:grab;touch-action:none;overflow:visible}
+body.panning,body.panning #boardarea svg{cursor:grabbing!important;user-select:none}
+#mapctl{right:calc(var(--sl) + 4px);bottom:14px;display:flex;flex-direction:column;gap:6px}
+#mapctl button{width:38px;height:38px;padding:0;font-size:1.1em;border-radius:11px;background:rgba(8,28,20,.84);backdrop-filter:blur(6px)}
+/* side */
+#tabs{flex:1;min-height:0;display:flex;flex-direction:column}
+.tabbar{display:flex;gap:6px;margin-bottom:8px}.tabbar button{flex:1}
+.tabbody{flex:1;min-height:0;overflow-y:auto;font-size:.84em}
+.tabbody.log{color:var(--muted)}.tabbody.log div{padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)}.tabbody.log div:first-child{color:var(--text)}
+.tabbody.chat{display:flex;flex-direction:column;gap:3px;word-break:break-word}
+#sheet{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.5);display:flex;align-items:flex-end}
+#sheet>.box{width:100%;max-height:85dvh;display:flex;flex-direction:column;border-radius:20px 20px 0 0;background:rgba(12,36,26,.98)}
+#tabs2{display:flex;flex-direction:column;min-height:240px;flex:1;margin-top:8px}
+#modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px;animation:fadein .2s}
+.modalbox{max-width:420px;background:rgba(12,36,26,.98);padding:20px 22px}.modalbox p{color:var(--text);line-height:1.45}
+@keyframes fadein{from{opacity:0}}
+button.danger{background:linear-gradient(180deg,#f07a70,#c43b31);color:#fff;box-shadow:0 3px 0 #7d1d16,0 8px 18px rgba(0,0,0,.35)}
+.badge.warn{background:rgba(224,96,90,.2);color:#ffc2bd}
+.warnpill{border-color:var(--bad)!important;color:#ffd1cd!important}
+/* players */
+.pcard{display:grid;grid-template-columns:38px 1fr auto;gap:9px;align-items:center;padding:6px 8px;border-radius:13px;border:1px solid transparent;transition:background .3s}
+.pcard.cur{background:linear-gradient(90deg,rgba(212,175,80,.2),rgba(212,175,80,.02));border-color:var(--line)}
+.av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#111;font-size:15px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25),inset 0 2px 0 rgba(255,255,255,.4),0 3px 8px rgba(0,0,0,.45);position:relative;flex:none}
+.av.sm{width:30px;height:30px;font-size:12px}.av.xs{width:22px;height:22px;font-size:10px;display:inline-grid}
+.cur .av::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--gold2);animation:spinpulse 1.6s ease-in-out infinite}
+@keyframes spinpulse{50%{transform:scale(1.12);opacity:.4}}
+.pn{font-weight:700;font-size:.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ps{font-size:.74em;color:var(--muted);display:flex;gap:8px;margin-top:2px;flex-wrap:wrap}
+.bar{height:5px;background:rgba(255,255,255,.08);border-radius:3px;margin-top:5px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .6s}
+.vpbig{font-family:Cinzel,serif;font-weight:800;font-size:1.4em;color:var(--gold2);text-align:right;line-height:1}
+.vpbig small{display:block;font-family:Inter;font-size:.45em;color:var(--muted);font-weight:600;letter-spacing:.08em}
+.pchip{display:flex;align-items:center;gap:6px;padding:4px 9px 4px 4px;border-radius:20px;background:rgba(0,0,0,.25);border:1px solid transparent;flex:none}
+.pchip.cur{border-color:var(--gold);background:rgba(212,175,80,.15)}
+.pchip .pn{font-size:.78em;max-width:80px}.pchip .ps{font-size:.68em;gap:4px;margin:0}
+.badge{display:inline-block;font-size:.7em;padding:1px 6px;border-radius:8px;background:rgba(212,175,80,.18);color:var(--gold2);margin-left:4px;font-weight:700}
+/* cards */
+.hand{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
+.rcard{position:relative;flex:none;width:54px;height:76px;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:26px;
+  box-shadow:0 5px 12px rgba(0,0,0,.45),inset 0 0 0 2px rgba(255,255,255,.28),inset 0 -14px 20px rgba(0,0,0,.18);transition:transform .15s;user-select:none}
+.rcard.pick{cursor:pointer}
+.rcard.pick:hover{transform:translateY(-5px) rotate(-2deg)}
+.rcard .n{position:absolute;top:-8px;right:-8px;background:#fffaf0;color:#1a1206;font-weight:800;font-size:13px;border-radius:12px;min-width:23px;height:23px;display:grid;place-items:center;box-shadow:0 2px 5px rgba(0,0,0,.5)}
+.rcard .lb{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#fff;margin-top:3px;font-weight:800;text-shadow:0 1px 2px #000a}
+.rcard.zero{opacity:.35;filter:saturate(.3)}
+.rcard.mini{width:36px;height:50px;font-size:18px;border-radius:8px}
+.rcard.mini .n{min-width:19px;height:19px;font-size:11px;top:-7px;right:-7px}
+.rcard.bump{animation:bump .55s}
+@keyframes bump{35%{transform:scale(1.18) translateY(-8px)}}
+.plus{position:absolute;top:-10px;left:50%;color:#8dffa6;font-weight:800;font-size:17px;animation:floatup 1.3s ease-out forwards;text-shadow:0 1px 4px #000;pointer-events:none}
+@keyframes floatup{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-34px)}}
+.rcard.dev{background:linear-gradient(160deg,#5b45a0,#241848);font-size:23px}
+.rcard.dev.playable{box-shadow:0 0 0 2px var(--gold2),0 0 16px rgba(242,220,148,.6),0 5px 12px rgba(0,0,0,.45)}
+.playtag{position:absolute;bottom:-8px;background:var(--gold2);color:#241848;font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;letter-spacing:.06em}
+.timer{font-weight:800;font-variant-numeric:tabular-nums;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:9px;padding:2px 8px;font-size:.85em;color:var(--gold2);white-space:nowrap}
+.timer.low{color:#ffb3ad;border-color:var(--bad);animation:tpulse .5s ease-in-out infinite alternate}
+.big{width:100%;font-size:1.08em;padding:.75em}
+.dicewrap{display:flex;gap:8px;align-items:center}
+.die{width:38px;height:38px;border-radius:10px;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:6px;
+  background:linear-gradient(145deg,#fff9e6,#e3d5ae);box-shadow:0 3px 0 #a8976a,0 8px 14px rgba(0,0,0,.45),inset 0 1px 0 #fff}
+.die.r{background:linear-gradient(145deg,#ee5b4d,#a71d14);box-shadow:0 3px 0 #6e130d,0 8px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.5)}
+.die i{width:7px;height:7px;border-radius:50%;background:#2a1f10;place-self:center;opacity:0}
+.die.r i{background:#fff6e0}
+.die i.on{opacity:1}
+.die.rolling{animation:tumble .75s cubic-bezier(.3,1.4,.5,1)}
+.die.r.rolling{animation-delay:.06s}
+@keyframes tumble{0%{transform:translate(-30px,-26px) rotate(-260deg) scale(.6)}55%{transform:translate(4px,3px) rotate(18deg) scale(1.08)}75%{transform:translate(-2px,-3px) rotate(-6deg)}100%{transform:none}}
+.sum{font-family:Cinzel;font-weight:800;font-size:1.5em;color:var(--gold2);min-width:28px;text-align:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+details summary{cursor:pointer;font-weight:700;color:var(--gold2)}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2a1614;border:1px solid var(--bad);color:#ffd9d6;padding:10px 18px;border-radius:12px;display:none;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#banner{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:45}
+#banner div{font-family:Cinzel,serif;font-weight:800;font-size:clamp(32px,7vw,78px);color:var(--gold2);text-shadow:0 4px 30px rgba(0,0,0,.85),0 0 50px rgba(212,175,80,.6);animation:ban 1.7s ease forwards;text-align:center;padding:0 10px}
+@keyframes ban{0%{opacity:0;transform:scale(.6)}18%{opacity:1;transform:scale(1.06)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.12)}}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:44}
+.winbox{text-align:center;padding:22px 28px}
+.winbox h2{font-size:2em}
+/* responsive */
+@media(max-width:1250px) and (min-width:901px){#boardarea{--sl:255px}#colR{width:230px}#actions{grid-template-columns:repeat(6,54px)}#bank{width:220px}#bank .rcard.mini{width:22px;height:32px;font-size:11px}#hud-top{width:min(400px,calc(100% - 540px))}.rcard{width:46px;height:64px;font-size:21px}.rcard .lb{font-size:8px}}
+@media(max-height:760px) and (min-width:901px){.rcard{width:44px;height:62px;font-size:20px}.rcard .lb{font-size:8px}.pcard{padding:3px 6px}.av{width:30px;height:30px;font-size:12px}.pcard{grid-template-columns:30px 1fr auto}.abtn{padding:3px 2px}.pile{min-height:56px}}
+@media(max-width:900px){
+  #game{display:flex;flex-direction:column;gap:6px;padding:6px}
+  #boardarea{position:relative;inset:auto;flex:1;min-height:0;order:1;--sl:0px;--st:52px}
+  .col{display:contents}
+  #statuspill{position:absolute;top:14px;left:14px;right:70px;z-index:4;padding:6px 10px;gap:8px;justify-content:space-between}
+  #plist,#tabs,#bank,.colspacer{display:none}
+  .fab{display:grid}
+  #mplayers{display:flex;gap:6px;overflow-x:auto;width:100%;padding:2px;order:2}
+  #bpanel{order:3;width:100%}
+  #handbar{order:4;width:100%;padding:6px 8px}
+  #actions{order:5;width:100%;grid-template-columns:repeat(6,1fr);padding:6px}
+  #actions .rollbtn{grid-column:1/-1}
+  #hud-top{top:66px;width:calc(100% - 20px);min-width:0}
+  .rcard{width:46px;height:64px;font-size:21px}.rcard .lb{font-size:8px}.htotal{width:48px;height:64px}.htotal b{font-size:1.5em}
+  .tradebox{padding:8px 10px}.pile{min-height:56px}.pile .hand{margin-top:4px}.rcard.mini{width:30px;height:42px;font-size:15px}.tradebox .muted[style]{display:none}
+  .die{width:28px;height:28px;padding:4px}.die i{width:5px;height:5px}.sum{font-size:1.15em}
+  .offer{padding:7px 10px}.orow{margin-top:4px}
+}
+/* svg */
+svg text{font-family:Inter,system-ui,sans-serif;pointer-events:none}
+.pop{animation:pop .5s cubic-bezier(.2,1.7,.4,1) both;transform-box:fill-box;transform-origin:50% 80%}
+@keyframes pop{from{transform:translateY(-26px) scale(.2);opacity:0}to{transform:none;opacity:1}}
+.flash{animation:flash 1.6s ease-out forwards;pointer-events:none}
+@keyframes flash{0%{opacity:0}15%{opacity:.75}100%{opacity:0}}
+.vring{fill:none;stroke:#fff3c4;stroke-width:2.5;animation:ring 1.1s ease-out infinite;transform-box:fill-box;transform-origin:center;pointer-events:none}
+@keyframes ring{from{transform:scale(.6);opacity:1}to{transform:scale(1.6);opacity:0}}
+.vdot{fill:#ffe48a;stroke:#fff;stroke-width:2.5;filter:drop-shadow(0 0 6px #ffd65c);pointer-events:none}
+.hit{fill:transparent;stroke:transparent;cursor:pointer}
+.ehl{stroke:#ffe48a;stroke-width:7;stroke-linecap:round;stroke-dasharray:7 7;animation:march .6s linear infinite;filter:drop-shadow(0 0 5px #ffd65c);pointer-events:none}
+@keyframes march{to{stroke-dashoffset:-14}}
+.thl{cursor:pointer;fill:rgba(255,232,150,.14);stroke:#ffe48a;stroke-width:4;animation:tpulse 1s ease-in-out infinite alternate}
+.thl:hover{fill:rgba(255,232,150,.35)}
+@keyframes tpulse{from{stroke-opacity:.4}to{stroke-opacity:1}}
+
+
+/* ===== Iron Lines overrides ===== */
+:root{--sea1:#2a7fb0;--sea2:#14557f;--sea3:#0b3352}
+.hero{background:radial-gradient(circle at 30% 30%,#2a7fb0,#14557f 55%,#0b3352)}
+.herorails{position:absolute;inset:0;width:100%;height:100%}
+.herotrain{position:relative;font-size:clamp(30px,6vw,52px);animation:chug 2.6s ease-in-out infinite alternate;letter-spacing:-6px}
+@keyframes chug{from{transform:translateX(-30px)}to{transform:translateX(30px)}}
+#game{display:grid;grid-template-columns:minmax(0,1fr) 296px;gap:10px;padding:10px;height:calc(100dvh - 53px);position:relative}
+#mainc{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+#boardarea{position:relative;inset:auto;flex:1;min-height:0;background:radial-gradient(circle at 50% 45%,var(--sea1) 0%,var(--sea2) 50%,var(--sea3) 100%)}
+#boardarea svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;cursor:grab;touch-action:none}
+#hud-tl{top:12px;left:12px}
+#hud-top{top:12px;left:50%;transform:translateX(-50%);width:auto;min-width:0;max-width:min(620px,60%);align-items:center}
+#hud-top .prompt{white-space:nowrap;font-weight:600}
+#hud-bl{left:12px;bottom:12px;width:min(520px,calc(100% - 90px))}
+#mapctl{right:12px;bottom:12px}
+#dock{display:flex;gap:10px;align-items:stretch;min-height:0}
+#handbar{order:1;flex:none;max-width:60%}
+#ticketbar{order:2;flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+#colR{display:flex;flex-direction:column;gap:10px;min-height:0;position:static;width:auto}
+#plist{max-height:none;flex:none}
+#tabs{flex:1;min-height:120px}
+/* train cards */
+.tcard{position:relative;flex:none;width:50px;height:72px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  box-shadow:0 5px 12px rgba(0,0,0,.45),inset 0 0 0 2px rgba(255,255,255,.35),inset 0 -12px 18px rgba(0,0,0,.18);transition:transform .15s;user-select:none}
+.tcard .caricon{width:36px;height:20px}
+.tcard .loco{font-size:24px;line-height:1;filter:drop-shadow(0 1px 1px #0006)}
+.tcard .lb{font-size:8.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:#fff;text-shadow:0 1px 2px #000a}
+.tcard.white .lb,.tcard.yellow .lb{color:#3b2f12;text-shadow:none}
+.tcard .n{position:absolute;top:-8px;right:-8px;background:#fffaf0;color:#1a1206;font-weight:800;font-size:13px;border-radius:12px;min-width:23px;height:23px;display:grid;place-items:center;box-shadow:0 2px 5px rgba(0,0,0,.5)}
+.tcard.zero{opacity:.3;filter:saturate(.3)}
+.tcard.bump{animation:bump .55s}
+.tcard.pick{cursor:pointer}
+.tcard.pick:hover{transform:translateY(-5px) rotate(-2deg)}
+.tcard.mini{width:34px;height:48px}.tcard.mini .caricon{width:26px}.tcard.mini .lb{display:none}.tcard.mini .n{min-width:19px;height:19px;font-size:11px;top:-7px;right:-7px}
+.tcard.off{opacity:.55;cursor:default}
+.mkt{display:flex;gap:6px;margin:10px 0 10px}
+.tcard.mk{width:38px;height:56px}.tcard.mk .caricon{width:28px}.tcard.mk .lb{font-size:7px}.tcard.mk .loco{font-size:18px}
+.tcard.empty{background:rgba(255,255,255,.05)!important;box-shadow:inset 0 0 0 1.5px dashed rgba(255,255,255,.2)}
+.deckcard{background:repeating-linear-gradient(45deg,#3a2a14,#3a2a14 6px,#4a3619 6px,#4a3619 12px)!important;border:2px solid var(--gold)}
+.deckcard .loco{color:var(--gold2);font-size:22px}
+.tkbtn{width:100%;font-size:.9em}
+#market .plbl{margin:0}
+/* tickets */
+.tickets{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px}
+.tickets.pend{margin:10px 0;flex-wrap:wrap}
+.ticket{flex:none;position:relative;display:grid;grid-template-columns:1fr;min-width:128px;padding:7px 34px 7px 10px;border-radius:9px;
+  background:linear-gradient(135deg,#f7eccd,#e9d8a8);color:#2b2111;box-shadow:0 4px 10px rgba(0,0,0,.35),inset 0 0 0 1px rgba(120,90,40,.35);font-size:.76em;line-height:1.15;cursor:default;transition:transform .15s}
+.ticket::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:9px 0 0 9px;background:#b33a2e}
+.ticket .tk-c{font-weight:800;white-space:nowrap}.ticket .tk-arrow{font-size:.85em;color:#8a6d3b;margin:-1px 0}
+.ticket .tk-pts{position:absolute;right:7px;top:50%;transform:translateY(-50%);background:#2b2111;color:#ffe48a;font-weight:800;font-size:1.15em;border-radius:8px;min-width:24px;height:24px;display:grid;place-items:center;padding:0 4px}
+.ticket.done{background:linear-gradient(135deg,#d9f3d9,#b8e2b8)}.ticket.done::before{background:#2f9b4a}.ticket.done .tk-pts{background:#1f6b33;color:#fff}
+.ticket.hi{transform:translateY(-3px);box-shadow:0 0 0 2px #ffe48a,0 8px 18px rgba(0,0,0,.4)}
+.ticket.pick{cursor:pointer;opacity:.5}.ticket.pick.sel{opacity:1;box-shadow:0 0 0 3px #ffe48a,0 8px 18px rgba(0,0,0,.4)}
+.ticket.pick.sel::after{content:'✓ keep';position:absolute;top:-9px;left:8px;background:#ffe48a;color:#2b2111;font-weight:800;font-size:9px;padding:1px 6px;border-radius:6px}
+/* map */
+.route .hit{stroke:transparent;stroke-width:18;fill:none}
+.route.clk{cursor:pointer}
+.route.can .slot{filter:brightness(1.08)}
+.route .glow{fill:none;stroke:#ffe48a;stroke-width:2.4;animation:tpulse .9s ease-in-out infinite alternate;filter:drop-shadow(0 0 4px #ffd65c)}
+.route.sel .glow{stroke:#fff;stroke-width:3}
+.route.clk:hover .slot{filter:brightness(1.25)}
+.route.blk{opacity:.22}
+.car-pop{animation:carpop .45s cubic-bezier(.2,1.6,.4,1) both;transform-box:fill-box;transform-origin:center}
+@keyframes carpop{from{transform:translateY(-16px) scale(.3);opacity:0}to{transform:none;opacity:1}}
+.clab{font:800 11.5px Inter,system-ui,sans-serif;fill:#2b2111;stroke:#f6eedb;stroke-width:3.2px;paint-order:stroke;stroke-linejoin:round;pointer-events:none}
+.clab.hi{fill:#8a2a12;font-size:13px}
+.cring{fill:rgba(255,228,138,.25);stroke:#ffe48a;stroke-width:2.5;animation:ring 1.2s ease-out infinite;transform-box:fill-box;transform-origin:center;pointer-events:none}
+.cring.done{stroke:#5fd47a;fill:rgba(95,212,122,.25)}
+.payopt .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:3px;box-shadow:inset 0 0 0 1px #0005}
+.payopt.on{box-shadow:0 0 0 2px #fff!important}
+#banner div small{display:block;font-family:Inter,sans-serif;font-size:.32em;color:#fff;margin-top:6px;letter-spacing:.02em}
+table.score{border-collapse:collapse;margin-top:12px;font-size:.92em;min-width:min(520px,80vw)}
+table.score th{font-size:.7em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:4px 8px;text-align:right}
+table.score td{padding:7px 8px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+table.score td:first-child,table.score th:first-child{text-align:left}
+table.score tr.win td{background:rgba(212,175,80,.15);color:var(--gold2)}
+table.score small{color:var(--muted)}
+.winbox{max-width:92vw;overflow-x:auto}
+@media(max-height:780px) and (min-width:901px){.tcard{width:44px;height:62px}.tcard .caricon{width:30px}.ticket{padding:5px 30px 5px 9px;font-size:.72em}.pcard{padding:3px 6px}.av{width:30px;height:30px;font-size:12px}.pcard{grid-template-columns:30px 1fr auto}}
+@media(max-width:1200px) and (min-width:901px){#game{grid-template-columns:minmax(0,1fr) 250px}.tcard.mk{width:31px;height:48px}.tcard.mk .caricon{width:22px}.tcard{width:42px;height:62px}.tcard .caricon{width:28px}#handbar{max-width:66%}}
+@media(max-width:900px){
+  #game{display:flex;flex-direction:column;gap:6px;padding:6px}
+  #mainc,#colR{display:contents}
+  #boardarea{order:1;flex:1;min-height:260px}
+  #market{order:2}#dock{order:3;flex-direction:column;gap:6px}
+  #plist,#tabs{display:none}
+  #mplayers{display:flex;gap:6px;overflow-x:auto;width:100%;padding:2px}
+  #handbar{max-width:none}#handbar .hand{gap:7px}
+  .tcard{width:36px;height:54px}.tcard .caricon{width:26px}.tcard .lb{font-size:6.5px}.tcard .loco{font-size:18px}.htotal{width:40px;height:54px}.htotal b{font-size:1.3em}
+  .mkt{justify-content:space-between}.tcard.mk{width:15%;max-width:46px}
+  .ticket{min-width:110px;font-size:.7em}
+  #hud-top{top:60px;max-width:94%}#hud-top .prompt{white-space:normal}
+  #hud-bl{width:calc(100% - 24px)}
+  .fab{display:grid}
+  #hud-tl{right:70px}#statuspill{position:static;padding:6px 10px;display:inline-flex}.status-pill .status{white-space:nowrap;font-size:.85em}#hud-top{top:58px}#hud-top .prompt{font-size:.78em;padding:6px 10px}
+  #market{padding:6px 10px}#market .tkbtn{padding:.4em}
+}
+</style>
+</head>
+<body>
+<div class="top"><a class="brand" href="#" onclick="leave(location.pathname);return false">🚂 IRON LINES</a>
+  <div class="topr"><button class="iconbtn" id="mute" onclick="toggleSound()" title="Sound">🔊</button><a href="/" class="muted" onclick="leave('/');return false">← Humza's site</a></div></div>
+<div id="app"></div>
+<div id="toast"></div>
+<div id="banner"></div>
+<canvas id="confetti"></canvas>
+<script>
+// ================= ENGINE =================
+const COLORS=['red','orange','yellow','green','blue','purple','black','white'];
+const CCOL={red:'#d9483f',orange:'#f08c2c',yellow:'#f1cf3b',green:'#3aa457',blue:'#3a7bd8',purple:'#9156cc',black:'#2e2e36',white:'#f4f1e8',gray:'#a9adb3'};
+const CNAME={red:'Red',orange:'Orange',yellow:'Yellow',green:'Green',blue:'Blue',purple:'Purple',black:'Black',white:'White',gray:'Gray',loco:'Locomotive'};
+const PCOL=['#e0453b','#3b74e0','#f2c230','#3aa35c','#a15be0'];
+const PCNAME=['Red','Blue','Yellow','Green','Purple'];
+const PTS={1:1,2:2,3:4,4:7,5:10,6:15};
+const TRAINS=45,LONGEST=10;
+const CITIES=[
+ ['Seattle',75,55,'t'],['Portland',60,118,'l'],['Boise',205,160,'dl'],['Helena',335,105,'t'],['Salt Lake City',265,265,'dr'],
+ ['San Francisco',62,322,'dr'],['Las Vegas',190,385,'r'],['Los Angeles',122,440,'l'],['San Diego',160,490,'b'],['Phoenix',258,468,'b'],
+ ['Denver',405,295,'dl'],['Santa Fe',392,420,'l'],['El Paso',390,522,'b'],['Omaha',560,245,'t'],['Kansas City',585,318,'ur'],
+ ['Oklahoma City',532,420,'dl'],['Dallas',555,497,'l'],['Houston',602,560,'b'],['Little Rock',650,445,'r'],['New Orleans',692,556,'b'],
+ ['Minneapolis',600,142,'l'],['Duluth',640,72,'ur'],['Chicago',705,212,'t'],['St. Louis',670,322,'r'],['Nashville',752,395,'t'],
+ ['Atlanta',792,456,'b'],['Miami',890,598,'l'],['Charlotte',852,384,'r'],['Detroit',778,168,'t'],['Pittsburgh',845,242,'b'],
+ ['Washington',886,286,'r'],['New York',930,202,'r'],['Boston',965,140,'r']
+].map(([name,x,y,lab],id)=>({id,name,x,y,lab}));
+const CI=Object.fromEntries(CITIES.map(c=>[c.name,c.id]));
+const ROUTE_DEF=[
+ ['Seattle','Portland',1,'gray','gray'],['Seattle','Boise',4,'yellow'],['Seattle','Helena',6,'purple'],['Portland','Boise',3,'red'],
+ ['Portland','San Francisco',5,'green','purple'],['Boise','Helena',2,'gray'],['Boise','Salt Lake City',2,'blue'],
+ ['San Francisco','Salt Lake City',5,'white','orange'],['San Francisco','Los Angeles',3,'purple','yellow'],['Los Angeles','San Diego',1,'gray'],
+ ['Los Angeles','Las Vegas',2,'gray'],['Los Angeles','Phoenix',3,'gray'],['San Diego','Phoenix',3,'blue'],['San Diego','El Paso',6,'black'],
+ ['Las Vegas','Salt Lake City',3,'orange'],['Las Vegas','Phoenix',2,'gray'],['Helena','Salt Lake City',3,'purple'],['Helena','Denver',4,'green'],
+ ['Helena','Duluth',6,'orange'],['Helena','Omaha',5,'red'],['Salt Lake City','Denver',3,'red','yellow'],['Phoenix','Santa Fe',3,'white'],
+ ['Phoenix','El Paso',3,'gray'],['Denver','Santa Fe',2,'gray'],['Denver','Kansas City',4,'black','orange'],['Denver','Omaha',4,'purple'],
+ ['Denver','Oklahoma City',4,'red'],['Santa Fe','El Paso',2,'gray'],['Santa Fe','Oklahoma City',3,'blue'],['El Paso','Dallas',4,'red'],
+ ['El Paso','Houston',6,'green'],['Oklahoma City','Dallas',2,'gray','gray'],['Oklahoma City','Kansas City',2,'gray','gray'],
+ ['Oklahoma City','Little Rock',2,'gray'],['Dallas','Little Rock',2,'gray'],['Dallas','Houston',1,'gray','gray'],['Houston','New Orleans',2,'gray'],
+ ['Little Rock','St. Louis',2,'gray'],['Little Rock','Nashville',3,'white'],['Little Rock','New Orleans',3,'green'],['Kansas City','Omaha',1,'gray','gray'],
+ ['Kansas City','St. Louis',2,'blue','purple'],['Omaha','Minneapolis',2,'gray','gray'],['Omaha','Chicago',4,'blue'],['Minneapolis','Duluth',1,'gray','gray'],
+ ['Minneapolis','Chicago',3,'black'],['Duluth','Chicago',3,'red'],['Duluth','Detroit',4,'white'],['Chicago','St. Louis',2,'green','white'],
+ ['Chicago','Detroit',2,'yellow'],['Chicago','Pittsburgh',3,'orange','black'],['Detroit','Pittsburgh',2,'gray'],['Detroit','New York',4,'blue'],
+ ['St. Louis','Nashville',2,'gray'],['St. Louis','Pittsburgh',5,'green'],['Nashville','Atlanta',1,'gray'],['Nashville','Pittsburgh',4,'yellow'],
+ ['Nashville','Charlotte',3,'black'],['Atlanta','Charlotte',2,'gray','gray'],['Atlanta','New Orleans',4,'yellow','orange'],['Atlanta','Miami',5,'blue'],
+ ['New Orleans','Miami',6,'red'],['Charlotte','Washington',2,'gray','gray'],['Charlotte','Miami',4,'purple'],['Washington','Pittsburgh',2,'gray'],
+ ['Washington','New York',2,'orange','black'],['Pittsburgh','New York',2,'white','green'],['New York','Boston',2,'yellow','red']
+];
+const ROUTES=[];
+ROUTE_DEF.forEach(([a,b,len,c1,c2])=>{const A=CI[a],B=CI[b];if(A==null||B==null)throw Error('bad city '+a+b);
+  const r1={id:ROUTES.length,a:A,b:B,len,color:c1,twin:null,side:c2?-1:0};ROUTES.push(r1);
+  if(c2){const r2={id:ROUTES.length,a:A,b:B,len,color:c2,twin:r1.id,side:1};r1.twin=r2.id;ROUTES.push(r2)}});
+const ADJ=CITIES.map(()=>[]);ROUTES.forEach(r=>{ADJ[r.a].push(r.id);ADJ[r.b].push(r.id)});
+const TICKET_DEF=[['Los Angeles','New York'],['Seattle','New York'],['Seattle','Los Angeles'],['San Francisco','Atlanta'],['Portland','Nashville'],['Boston','Miami'],
+ ['Denver','Pittsburgh'],['Chicago','New Orleans'],['Dallas','New York'],['Helena','Los Angeles'],['Duluth','Houston'],['Kansas City','Houston'],['Denver','El Paso'],
+ ['Phoenix','Chicago'],['Salt Lake City','Kansas City'],['Minneapolis','Houston'],['Omaha','Atlanta'],['Las Vegas','Dallas'],['San Diego','Denver'],['Boise','Chicago'],
+ ['Little Rock','Boston'],['Detroit','Miami'],['St. Louis','Washington'],['Santa Fe','Nashville'],['Oklahoma City','Charlotte'],['Seattle','Duluth'],['Portland','Phoenix'],
+ ['Boston','Chicago'],['New Orleans','Washington'],['Helena','Kansas City'],['San Francisco','Denver'],['Los Angeles','Miami'],['Houston','Pittsburgh'],['El Paso','Atlanta'],
+ ['Seattle','Miami'],['Duluth','El Paso']].filter(t=>CI[t[0]]!=null&&CI[t[1]]!=null);
+function shortest(from,to,cost){ // dijkstra over routes; cost(r) -> number|Infinity
+  const d=CITIES.map(()=>Infinity),prev=CITIES.map(()=>null),done=new Set();d[from]=0;
+  while(true){let u=-1,best=Infinity;for(let i=0;i<d.length;i++)if(!done.has(i)&&d[i]<best){best=d[i];u=i}
+    if(u<0||u===to)break;done.add(u);
+    for(const rid of ADJ[u]){const r=ROUTES[rid],c=cost(r);if(c===Infinity)continue;const w=r.a===u?r.b:r.a;if(d[u]+c<d[w]){d[w]=d[u]+c;prev[w]=rid}}}
+  if(d[to]===Infinity)return null;const path=[];let x=to;while(x!==from){const rid=prev[x];path.push(rid);const r=ROUTES[rid];x=r.a===x?r.b:r.a}
+  return{cost:d[to],path};
+}
+const TICKETS=TICKET_DEF.map(([a,b],id)=>{const A=CI[a],B=CI[b];const sp=shortest(A,B,r=>r.len);return{id,a:A,b:B,pts:sp.cost+(sp.cost>=16?2:0)}});
+function pushLog(s,m){s.log.push(m);s.logN=(s.logN||0)+1;if(s.log.length>90)s.log.shift()}
+const rnd=n=>Math.floor(Math.random()*n);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
+const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const emptyHand=()=>({red:0,orange:0,yellow:0,green:0,blue:0,purple:0,black:0,white:0,loco:0});
+const handSize=h=>Object.values(h).reduce((a,b)=>a+b,0);
+const tName=t=>`${CITIES[TICKETS[t].a].name} → ${CITIES[TICKETS[t].b].name}`;
+
+function newGame(cfg,opts={}){
+  const deck=shuffle([...COLORS.flatMap(c=>Array(12).fill(c)),...Array(14).fill('loco')]);
+  const tdeck=shuffle(TICKETS.map(t=>t.id));
+  const players=cfg.map((c,i)=>{const hand=emptyHand();for(let k=0;k<4;k++)hand[deck.pop()]++;
+    return{name:c.name,bot:!!c.bot,color:PCOL[i],hand,tickets:[],pending:[tdeck.pop(),tdeck.pop(),tdeck.pop()],trains:TRAINS,score:0}});
+  const s={players,deck,discard:[],market:[],tdeck,routes:{},turn:0,turnNo:0,phase:'setup',lastRound:null,final:null,winner:null,
+    log:['All aboard! Choose your starting destination tickets (keep at least 2).'],logN:1,chat:[],chatN:0,timer:opts.timer||0,deadline:null,ver:0,lastClaim:null};
+  refillMarket(s);return s;
+}
+function drawCard(s){if(!s.deck.length&&s.discard.length){s.deck=shuffle(s.discard);s.discard=[]}return s.deck.length?s.deck.pop():null}
+function refillMarket(s){
+  for(let guard=0;guard<6;guard++){
+    for(let i=0;i<5;i++)if(!s.market[i]){const c=drawCard(s);s.market[i]=c||null}
+    const locos=s.market.filter(c=>c==='loco').length,avail=s.deck.length+s.discard.length;
+    if(locos>=3&&avail>=5){s.discard.push(...s.market.filter(Boolean));s.market=[];pushLog(s,'🌈 Three locomotives face-up — the market was reshuffled');continue}
+    break;
+  }
+}
+function canDrawAny(s,second){return s.deck.length+s.discard.length>0||s.market.some(c=>c&&(!second||c!=='loco'))}
+function routeBlocked(s,r,p){
+  if(s.routes[r.id]!=null)return 'Route already claimed';
+  if(r.twin!=null){const o=s.routes[r.twin];if(o!=null){if(o===p)return "You can't claim both sides of a double route";if(s.players.length<=3)return 'In 2–3 player games only one side of a double route can be used'}}
+  return null;
+}
+function payOptions(s,p,rid){ // returns [{color,use:{c:n,loco:n}}]
+  const r=ROUTES[rid],P=s.players[p],L=r.len,H=P.hand,out=[];
+  const cols=r.color==='gray'?COLORS:[r.color];
+  for(const c of cols){const use=Math.min(H[c],L),need=L-use;if(need<=H.loco&&use>0)out.push({color:c,use:{[c]:use,loco:need}})}
+  if(H.loco>=L)out.push({color:'loco',use:{loco:L}});
+  return out;
+}
+function connected(s,p,a,b){
+  const seen=new Set([a]),q=[a];while(q.length){const u=q.shift();if(u===b)return true;for(const rid of ADJ[u]){if(s.routes[rid]!==p)continue;const r=ROUTES[rid],w=r.a===u?r.b:r.a;if(!seen.has(w)){seen.add(w);q.push(w)}}}return false;
+}
+function longestPath(s,p){
+  const mine=ROUTES.filter(r=>s.routes[r.id]===p);if(!mine.length)return 0;let best=0;
+  const dfs=(u,used,len)=>{if(len>best)best=len;for(const rid of ADJ[u]){if(s.routes[rid]!==p||used.has(rid))continue;used.add(rid);const r=ROUTES[rid];dfs(r.a===u?r.b:r.a,used,len+r.len);used.delete(rid)}};
+  const cities=new Set();mine.forEach(r=>{cities.add(r.a);cities.add(r.b)});cities.forEach(c=>dfs(c,new Set(),0));return best;
+}
+function actors(s){
+  if(s.phase==='over')return[];
+  if(s.phase==='setup')return s.players.map((p,i)=>p.pending?i:-1).filter(i=>i>=0);
+  return[s.turn];
+}
+function endTurn(s,log){
+  const P=s.players[s.turn];
+  if(s.lastRound){s.lastRound.left--;if(s.lastRound.left<=0)return finish(s,log)}
+  else if(P.trains<=2){s.lastRound={by:s.turn,left:s.players.length};log(`🚨 ${P.name} has ${P.trains} trains left — final round! Everyone gets one last turn.`)}
+  s.turn=(s.turn+1)%s.players.length;s.turnNo++;s.phase='main';
+  log(`— ${s.players[s.turn].name}'s turn —`);
+}
+function finish(s,log){
+  const lens=s.players.map((_,i)=>longestPath(s,i)),maxL=Math.max(...lens);
+  s.final=s.players.map((P,i)=>{const done=[],failed=[];P.tickets.forEach(t=>{(connected(s,i,TICKETS[t].a,TICKETS[t].b)?done:failed).push(t)});
+    const plus=done.reduce((a,t)=>a+TICKETS[t].pts,0),minus=failed.reduce((a,t)=>a+TICKETS[t].pts,0),lb=maxL>0&&lens[i]===maxL?LONGEST:0;
+    return{routes:P.score,plus,minus,longest:lb,len:lens[i],done,failed,total:P.score+plus-minus+lb}});
+  let w=0;s.final.forEach((f,i)=>{const W=s.final[w];if(f.total>W.total||(f.total===W.total&&(f.done.length>W.done.length||(f.done.length===W.done.length&&f.longest>W.longest))))w=i});
+  s.winner=w;s.phase='over';log(`🏆 ${s.players[w].name} wins with ${s.final[w].total} points!`);
+}
+function act(s,pid,a){
+  if(!a||typeof a!=='object')return 'Bad action';
+  if(a.type==='chat'){if(!s.players[pid])return 'Bad player';const t=String(a.text||'').trim().slice(0,200);if(!t)return 'Empty message';
+    s.chat.push({p:pid,t});if(s.chat.length>60)s.chat.shift();s.chatN=(s.chatN||0)+1;return null}
+  if(s.phase==='over')return 'Game over';
+  const P=s.players[pid];if(!P)return 'Bad player';
+  const log=m=>pushLog(s,m),myTurn=pid===s.turn;
+  const err=(()=>{switch(a.type){
+  case 'keepTickets':{
+    const pend=P.pending;if(!pend)return 'No tickets to choose';
+    const keep=[...new Set((a.keep||[]).map(Number))].filter(t=>pend.includes(t));const min=s.phase==='setup'?Math.min(2,pend.length):1;
+    if(keep.length<min)return `Keep at least ${min} ticket${min>1?'s':''}`;
+    P.tickets.push(...keep);pend.filter(t=>!keep.includes(t)).forEach(t=>s.tdeck.unshift(t));P.pending=null;
+    log(`🎫 ${P.name} kept ${keep.length} ticket${keep.length>1?'s':''}`);
+    if(s.phase==='setup'){if(s.players.every(q=>!q.pending)){s.phase='main';s.turn=0;s.turnNo=1;log(`Tickets chosen — ${s.players[0].name} goes first.`);log(`— ${s.players[0].name}'s turn —`)}}
+    else if(s.phase==='tickets'&&myTurn)endTurn(s,log);
+    return;}
+  case 'drawDeck':{
+    if(!myTurn||(s.phase!=='main'&&s.phase!=='draw2'))return 'Not now';
+    const c=drawCard(s);if(!c)return 'The deck is empty';P.hand[c]++;
+    if(s.phase==='main'){s.phase='draw2';s.lastDraw=c;log(`🃏 ${P.name} drew from the deck`);if(!canDrawAny(s,true)){endTurn(s,log)}}
+    else{log(`🃏 ${P.name} drew from the deck`);endTurn(s,log)}
+    return;}
+  case 'drawMarket':{
+    if(!myTurn||(s.phase!=='main'&&s.phase!=='draw2'))return 'Not now';
+    const i=a.i|0,c=s.market[i];if(!c)return 'No card there';
+    if(c==='loco'&&s.phase==='draw2')return "You can't take a face-up locomotive as your second card";
+    P.hand[c]++;s.market[i]=null;refillMarket(s);log(`🃏 ${P.name} took a ${CNAME[c]}${c==='loco'?' 🌈':''} card`);
+    if(c==='loco'||s.phase==='draw2')endTurn(s,log);else{s.phase='draw2';if(!canDrawAny(s,true))endTurn(s,log)}
+    return;}
+  case 'claim':{
+    if(!myTurn||s.phase!=='main')return 'You can only claim a route at the start of your turn';
+    const r=ROUTES[a.r|0];if(!r)return 'Bad route';const b=routeBlocked(s,r,pid);if(b)return b;
+    if(P.trains<r.len)return `You only have ${P.trains} trains left`;
+    const opt=payOptions(s,pid,r.id).find(o=>o.color===a.color);if(!opt)return `You need ${r.len} ${r.color==='gray'?'cards of one color':CNAME[r.color]+' cards'} (locomotives are wild)`;
+    for(const k in opt.use){P.hand[k]-=opt.use[k];for(let n=0;n<opt.use[k];n++)s.discard.push(k)}
+    s.routes[r.id]=pid;P.trains-=r.len;P.score+=PTS[r.len];s.lastClaim={r:r.id,p:pid,t:Date.now()};
+    log(`🚂 ${P.name} claimed ${CITIES[r.a].name}–${CITIES[r.b].name} (+${PTS[r.len]})`);
+    P.tickets.forEach(t=>{if(!(P.doneT||[]).includes(t)&&connected(s,pid,TICKETS[t].a,TICKETS[t].b)){P.doneT=[...(P.doneT||[]),t];if(!P.bot)P.newDone=t}});
+    endTurn(s,log);return;}
+  case 'drawTickets':{
+    if(!myTurn||s.phase!=='main')return 'Not now';if(!s.tdeck.length)return 'No destination tickets left';
+    P.pending=s.tdeck.splice(-Math.min(3,s.tdeck.length)).reverse();s.phase='tickets';log(`🎫 ${P.name} is drawing destination tickets`);return;}
+  case 'pass':{
+    if(!myTurn||s.phase!=='main')return 'Not now';
+    if(canDrawAny(s,false)||s.tdeck.length||ROUTES.some(r=>!routeBlocked(s,r,pid)&&P.trains>=r.len&&payOptions(s,pid,r.id).length))return 'You still have moves available';
+    log(`${P.name} passes`);endTurn(s,log);return;}
+  default:return 'Unknown action';
+  }})();
+  if(err)return err;s.ver++;return null;
+}
+// ================= BOTS =================
+function botCost(s,p){return r=>{const o=s.routes[r.id];if(o===p)return 0;if(o!=null)return Infinity;if(routeBlocked(s,r,p))return Infinity;return r.len}}
+function ticketPlan(s,p,tickets){ // needed free routes for uncompleted tickets
+  const cost=botCost(s,p),need=new Map();let total=0,impossible=[];
+  for(const t of tickets){const T=TICKETS[t];if(connected(s,p,T.a,T.b))continue;
+    const sp=shortest(T.a,T.b,cost);if(!sp){impossible.push(t);continue}total+=sp.cost;
+    sp.path.forEach(rid=>{if(s.routes[rid]==null)need.set(rid,(need.get(rid)||0)+TICKETS[t].pts)})}
+  return{need,total,impossible};
+}
+function bestPay(s,p,rid){const opts=payOptions(s,p,rid);if(!opts.length)return null;
+  // fewest locos, then most cards of that color left over avoided
+  return opts.sort((x,y)=>(x.use.loco||0)-(y.use.loco||0)||(s.players[p].hand[y.color]||0)-(s.players[p].hand[x.color]||0))[0];}
+function chooseTickets(s,p,pend,min){
+  const P=s.players[p],scored=pend.map(t=>{const pl=ticketPlan(s,p,[...P.tickets,t]),base=ticketPlan(s,p,P.tickets);return{t,extra:pl.total-base.total,pts:TICKETS[t].pts}})
+    .sort((a,b)=>(a.extra-a.pts*.6)-(b.extra-b.pts*.6));
+  const budget=P.trains-ticketPlan(s,p,P.tickets).total;
+  const keep=[];let used=0;for(const x of scored){if(keep.length<min||(used+x.extra<=budget*.7&&x.extra<=x.pts+4)){keep.push(x.t);used+=x.extra}}
+  return keep;
+}
+function botAct(s,p){
+  const P=s.players[p];
+  if(P.pending){return{type:'keepTickets',keep:chooseTickets(s,p,P.pending,s.phase==='setup'?2:1)}}
+  if(s.phase!=='main'&&s.phase!=='draw2')return null;
+  const plan=ticketPlan(s,p,P.tickets),need=[...plan.need.keys()];
+  const endgame=s.lastRound||s.players.some(q=>q.trains<=8);
+  if(s.phase==='main'){
+    // claim a needed route we can afford (longest/most valuable first)
+    const claimable=need.filter(rid=>!routeBlocked(s,ROUTES[rid],p)&&P.trains>=ROUTES[rid].len&&bestPay(s,p,rid))
+      .sort((a,b)=>ROUTES[b].len-ROUTES[a].len||plan.need.get(b)-plan.need.get(a));
+    if(claimable.length){const rid=claimable[0];return{type:'claim',r:rid,color:bestPay(s,p,rid).color}}
+    // nothing needed: grab points
+    if(!need.length||endgame){
+      const any=ROUTES.filter(r=>!routeBlocked(s,r,p)&&P.trains>=r.len&&bestPay(s,p,r.id)).sort((a,b)=>b.len-a.len);
+      if(any.length&&(any[0].len>=3||endgame||handSize(P.hand)>=10))return{type:'claim',r:any[0].id,color:bestPay(s,p,any[0].id).color};
+      if(!need.length&&!endgame&&s.tdeck.length&&P.trains>=14&&(P.ticketDraws||0)<3){P.ticketDraws=(P.ticketDraws||0)+1;return{type:'drawTickets'}}
+    }
+  }
+  // draw cards toward needed colors
+  const want={};need.forEach(rid=>{const r=ROUTES[rid];if(r.color!=='gray')want[r.color]=(want[r.color]||0)+r.len});
+  const gray=need.filter(rid=>ROUTES[rid].color==='gray');
+  if(gray.length){const top=COLORS.slice().sort((a,b)=>P.hand[b]-P.hand[a])[0];want[top]=(want[top]||0)+1}
+  let bi=-1,bv=0;s.market.forEach((c,i)=>{if(!c||c==='loco')return;const v=(want[c]||0)-P.hand[c]*.5;if(v>bv){bv=v;bi=i}});
+  if(bi>=0)return{type:'drawMarket',i:bi};
+  const li=s.market.indexOf('loco');if(s.phase==='main'&&li>=0&&Math.random()<.45)return{type:'drawMarket',i:li};
+  if(s.deck.length+s.discard.length)return{type:'drawDeck'};
+  const fi=s.market.findIndex(c=>c&&(s.phase==='main'||c!=='loco'));if(fi>=0)return{type:'drawMarket',i:fi};
+  if(s.phase==='main'){const any=ROUTES.find(r=>!routeBlocked(s,r,p)&&P.trains>=r.len&&bestPay(s,p,r.id));if(any)return{type:'claim',r:any.id,color:bestPay(s,p,any.id).color};
+    if(s.tdeck.length)return{type:'drawTickets'};return{type:'pass'}}
+  return null;
+}
+function botFallback(s,p){
+  const P=s.players[p];
+  if(P.pending)return{type:'keepTickets',keep:P.pending.slice(0,s.phase==='setup'?2:1)};
+  if(s.deck.length+s.discard.length)return{type:'drawDeck'};
+  const fi=s.market.findIndex(c=>c&&(s.phase==='main'||c!=='loco'));if(fi>=0)return{type:'drawMarket',i:fi};
+  return{type:'pass'};
+}
+// ================= SOUND =================
+const SFX={ctx:null,master:null,on:localStorage.getItem('il_mute')!=='1',amb:null};
+function ac(){
+  if(!SFX.ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;SFX.ctx=new C();SFX.master=SFX.ctx.createGain();SFX.master.gain.value=.9;SFX.master.connect(SFX.ctx.destination)}
+  if(SFX.ctx.state==='suspended')SFX.ctx.resume();return SFX.ctx;
+}
+function tone(f,dur,o={}){const c=ac();if(!c)return;const t=c.currentTime+(o.at||0),os=c.createOscillator(),g=c.createGain();
+  os.type=o.type||'sine';os.frequency.setValueAtTime(f,t);if(o.slide)os.frequency.exponentialRampToValueAtTime(o.slide,t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(o.vol||.15,t+(o.att||.008));g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  os.connect(g).connect(SFX.master);os.start(t);os.stop(t+dur+.05)}
+let NB=null;
+function noise(dur,o={}){const c=ac();if(!c)return;if(!NB){NB=c.createBuffer(1,c.sampleRate*2,c.sampleRate);const d=NB.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  const t=c.currentTime+(o.at||0),src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();src.buffer=NB;
+  f.type=o.type||'bandpass';f.frequency.setValueAtTime(o.freq||1000,t);if(o.sweep)f.frequency.exponentialRampToValueAtTime(o.sweep,t+dur);f.Q.value=o.q||1;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(o.vol||.2,t+(o.att||.004));g.gain.exponentialRampToValueAtTime(.0008,t+dur);
+  src.connect(f).connect(g).connect(SFX.master);src.start(t,Math.random()*1.5);src.stop(t+dur+.05)}
+const SOUNDS={
+  click(){tone(720,.05,{type:'triangle',vol:.05})},
+  dice(){for(let i=0;i<9;i++)noise(.045,{at:i*.065+Math.random()*.025,vol:.32,freq:2200+Math.random()*1800,q:4});noise(.09,{at:.62,vol:.38,freq:1500,q:2});tone(180,.08,{at:.62,type:'triangle',vol:.12})},
+  build(){noise(.14,{vol:.55,freq:420,type:'lowpass'});tone(150,.18,{type:'triangle',vol:.28,slide:85});noise(.08,{at:.09,vol:.3,freq:600,type:'lowpass'});tone(120,.12,{at:.09,type:'triangle',vol:.18,slide:80})},
+  city(){SOUNDS.build();[392,523,659].forEach((f,i)=>tone(f,.4,{at:.18+i*.07,type:'triangle',vol:.1}))},
+  gain(){tone(988,.2,{vol:.09});tone(1319,.32,{vol:.08,at:.07});tone(1976,.3,{vol:.03,at:.07})},
+  robber(){tone(98,.9,{type:'sawtooth',vol:.07,slide:62});tone(147,.9,{type:'sawtooth',vol:.045,slide:93,at:.06});noise(.6,{vol:.12,freq:300,sweep:120,type:'lowpass'})},
+  steal(){noise(.25,{vol:.25,freq:900,sweep:4000,q:1.5})},
+  knight(){tone(880,.5,{type:'square',vol:.035});tone(1320,.45,{type:'square',vol:.025,at:.01});noise(.2,{freq:5000,q:6,vol:.2})},
+  trade(){tone(1568,.09,{type:'square',vol:.04});tone(2093,.35,{type:'square',vol:.035,at:.09})},
+  card(){noise(.2,{freq:1800,sweep:6000,q:.8,vol:.22,type:'bandpass'})},
+  award(){[523,659,784,1047].forEach((f,i)=>tone(f,.45,{at:i*.09,type:'triangle',vol:.12}))},
+  turn(){[523,659,784].forEach((f,i)=>tone(f,.55,{at:i*.11,vol:.12}));tone(1047,.8,{at:.33,vol:.07})},
+  win(){[523,659,784,1047,0,784,1047].forEach((f,i)=>f&&tone(f,.42,{type:'triangle',vol:.16,at:i*.15}));[262,330,392].forEach(f=>tone(f,1.6,{at:1.05,type:'triangle',vol:.1}))},
+  err(){tone(220,.16,{type:'square',vol:.04,slide:160})},
+  tick(){tone(1500,.035,{type:'square',vol:.03})},
+  chat(){tone(1046,.09,{vol:.07});tone(1568,.14,{vol:.06,at:.06})},
+  train(){for(let i=0;i<6;i++)noise(.07,{at:i*.11,vol:.35-i*.03,freq:260+i*20,type:'lowpass'});tone(523,.55,{at:.08,type:'triangle',vol:.09,att:.05});tone(659,.55,{at:.08,type:'triangle',vol:.07,att:.05});tone(784,.5,{at:.12,type:'triangle',vol:.05,att:.05})},
+  draw(){noise(.12,{freq:2400,sweep:5200,q:.9,vol:.2})},
+  ticket(){noise(.22,{freq:1200,sweep:3000,q:.6,vol:.16});noise(.18,{at:.12,freq:1800,sweep:900,q:.6,vol:.12})},
+  alarm(){[880,660,880,660].forEach((f,i)=>tone(f,.22,{at:i*.2,type:'triangle',vol:.1}))},
+  join(){tone(660,.15,{vol:.1});tone(990,.25,{vol:.1,at:.1})}
+};
+function play(n){if(!SFX.on)return;try{SOUNDS[n]&&SOUNDS[n]()}catch(e){}}
+function ambient(on){
+  const c=ac();if(!c)return;
+  if(on&&!SFX.amb){const src=c.createBufferSource();if(!NB)noise(.01,{vol:.0001});src.buffer=NB;src.loop=true;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=420;
+    const g=c.createGain();g.gain.value=.018;const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=.09;lg.gain.value=.014;lfo.connect(lg).connect(g.gain);
+    src.connect(f).connect(g).connect(SFX.master);src.start();lfo.start();SFX.amb={src,lfo,g}}
+  if(!on&&SFX.amb){try{SFX.amb.src.stop();SFX.amb.lfo.stop()}catch(e){}SFX.amb=null}
+}
+function toggleSound(){SFX.on=!SFX.on;localStorage.setItem('il_mute',SFX.on?'0':'1');$('mute').textContent=SFX.on?'🔊':'🔇';ambient(SFX.on&&!!G);if(SFX.on)play('click')}
+document.addEventListener('pointerdown',e=>{if(SFX.on){ac();if(G&&!SFX.amb)ambient(true)}if(e.target.closest('button'))play('click')},true);
+
+// ================= APP STATE =================
+let G=null,mode=null,me=0,lastV=0,lastPhase=null;
+let peer=null,hostConn=null,lobby=[],roomCode='',botT=null;
+let myName=localStorage.getItem('il_name')||'';
+let timerSec=+(localStorage.getItem('il_timer')??120),clockOff=0,lastTick=null,seenChat=null,seats=null,seenLog=null,seenPieces=null,newPieces=[],prevHand=null,winShown=false;
+let uiClaim=null,uiKeep=null,uiHiT=null,uiTab='log',uiSheet=false,chatSeenTab=0,gains={},prevDone=null,chatShown=0;
+const $=id=>document.getElementById(id);
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2600);play('err')}
+function banner(m,sub){const b=$('banner');b.innerHTML=`<div>${esc(m)}${sub?`<small>${esc(sub)}</small>`:''}</div>`;clearTimeout(b._h);b._h=setTimeout(()=>b.innerHTML='',1900)}
+$('mute').textContent=SFX.on?'🔊':'🔇';
+
+function viewer(){if(mode!=='local')return me;const h=actors(G).filter(p=>!G.players[p].bot);if(h.length)lastV=h[0];return lastV}
+function dispatch(a,as){
+  const p=as??viewer();
+  if(mode==='client'){if(hostConn&&hostConn.open)hostConn.send({t:'act',a});return}
+  const e=act(G,p,a);if(e){toast(e);return}afterChange();
+}
+function resetUI(){uiClaim=null;uiKeep=null;lastPhase=G.phase}
+function timerKey(s){return s.phase==='setup'?'setup':String(s.turnNo)}
+function updateDeadlines(s){if(!s.timer||s.phase==='over')return;const k=timerKey(s);if(s.tkey!==k){s.tkey=k;s.deadline=Date.now()+(s.phase==='setup'?Math.max(60,s.timer):s.timer)*1000}}
+setInterval(()=>{
+  if(!G||mode==='client'||!G.timer||G.phase==='over'||!G.deadline||Date.now()<G.deadline)return;
+  let any=false;
+  for(const p of actors(G)){const P=G.players[p];if(P.bot)continue;any=true;
+    if(G.toLog!==G.tkey+'|'+p){G.toLog=G.tkey+'|'+p;pushLog(G,`⏰ ${P.name} ran out of time`)}
+    const a=P.pending?botAct(G,p):{type:'drawDeck'};let e=act(G,p,a);if(e)act(G,p,botFallback(G,p));}
+  if(any)afterChange();
+},600);
+function timeLeft(){if(!G||!G.timer||G.phase==='over'||!G.deadline)return null;return Math.max(0,Math.ceil((G.deadline-(Date.now()+clockOff))/1000))}
+const fmtT=t=>Math.floor(t/60)+':'+String(t%60).padStart(2,'0');
+setInterval(()=>{const el=$('timer');const t=timeLeft();if(!el||t==null)return;el.textContent='⏱ '+fmtT(t);el.classList.toggle('low',t<=15);
+  if(t!==lastTick){lastTick=t;if(t<=10&&t>0&&actors(G).includes(viewer()))play('tick')}},250);
+function afterChange(){
+  if(mode!=='client')updateDeadlines(G);
+  if(G.phase!==lastPhase)resetUI();
+  render();if(mode==='host'){broadcast();saveHost()}scheduleBots();
+}
+function botStep(){if(!G||mode==='client'||G.phase==='over')return null;for(const p of actors(G))if(G.players[p].bot)return[p,botAct(G,p)||botFallback(G,p)];return null}
+function scheduleBots(){
+  if(botT||!botStep())return;
+  botT=setTimeout(()=>{botT=null;const st=botStep();if(!st)return;const[p,a]=st;
+    let e=act(G,p,a);if(e){e=act(G,p,botFallback(G,p));if(e)console.warn('bot stuck',e)}afterChange()},G.phase==='setup'?500:G.phase==='draw2'?450:750);
+}
+// ----- events → sound & animation -----
+function processEvents(){
+  const cn=G.chatN||0;if(seenChat!=null&&cn>seenChat){const m=G.chat[G.chat.length-1];if(m&&m.p!==viewer())play('chat')}seenChat=cn;
+  const v=viewer(),dn=(G.players[v].doneT||[]).length;
+  if(prevDone&&prevDone.v===v&&dn>prevDone.n){const t=G.players[v].doneT[dn-1];setTimeout(()=>{banner('Ticket complete! 🎉',tName(t)+' · +'+TICKETS[t].pts);play('award')},500)}
+  prevDone={v,n:dn};
+  const n=G.logN||0;if(seenLog==null||n<seenLog){seenLog=n;return}
+  const k=n-seenLog;seenLog=n;if(k<=0)return;
+  const fresh=G.log.slice(-k),S=[];
+  for(const l of fresh){
+    if(l.startsWith('🏆'))S.push('win');
+    else if(l.startsWith('🚂'))S.push('train');
+    else if(l.startsWith('🚨')){S.push('alarm');setTimeout(()=>banner('Final round!','Everyone gets one last turn'),200)}
+    else if(l.startsWith('🎫'))S.push('ticket');
+    else if(l.startsWith('🃏')||l.startsWith('🌈'))S.push('draw');
+    if((l.startsWith('— '))&&G.phase!=='over'&&!G.players[G.turn].bot){
+      const humans=G.players.filter(p=>!p.bot).length;
+      if(mode!=='local'&&G.turn===me){S.push('turn');setTimeout(()=>banner('Your turn'),350)}
+      else if(mode==='local'){S.push('turn');setTimeout(()=>banner(humans>1?`${G.players[G.turn].name}'s turn`:'Your turn'),350)}
+    }
+  }
+  [...new Set(S)].forEach((s,i)=>setTimeout(()=>play(s),i*160));
+  if(G.phase==='over'&&!winShown){winShown=true;setTimeout(confetti,400)}
+}
+function confetti(){
+  const cv=$('confetti'),ctx=cv.getContext('2d');cv.width=innerWidth;cv.height=innerHeight;
+  const cols=['#f2dc94','#d4af50','#e0453b','#3b74e0','#3aa35c','#fff','#f2c230'];
+  const ps=Array.from({length:220},()=>({x:innerWidth/2+(Math.random()-.5)*200,y:innerHeight*.35,vx:(Math.random()-.5)*16,vy:-Math.random()*16-4,r:Math.random()*6+3,c:cols[rnd(cols.length)],a:Math.random()*6,va:(Math.random()-.5)*.4}));
+  const t0=performance.now();
+  (function f(t){ctx.clearRect(0,0,cv.width,cv.height);ps.forEach(p=>{p.vy+=.35;p.vx*=.99;p.x+=p.vx;p.y+=p.vy;p.a+=p.va;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);ctx.fillStyle=p.c;ctx.fillRect(-p.r,-p.r/2,p.r*2,p.r);ctx.restore()});
+    if(t-t0<4500)requestAnimationFrame(f);else ctx.clearRect(0,0,cv.width,cv.height)})(t0);
+}
+function morph(a,b){
+  if(a.nodeType!==b.nodeType||a.nodeName!==b.nodeName){a.replaceWith(b);return}
+  if(a.nodeType!==1){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return}
+  for(let k=a.attributes.length-1;k>=0;k--){const n=a.attributes[k].name;if(!b.hasAttribute(n))a.removeAttribute(n)}
+  for(const at of b.attributes)if(a.getAttribute(at.name)!==at.value)a.setAttribute(at.name,at.value);
+  const ac=[...a.childNodes],bc=[...b.childNodes];
+  for(let k=0;k<bc.length;k++){if(k<ac.length)morph(ac[k],bc[k]);else a.appendChild(bc[k])}
+  for(let k=bc.length;k<ac.length;k++)ac[k].remove();
+}
+function render(){if(!G)return;processEvents();const v=viewer(),P=G.players[v];
+  document.body.classList.add('ingame');
+  const tpl=document.createElement('template');tpl.innerHTML=gameHTML(v).trim();const nn=tpl.content.firstElementChild,cur=$('game');
+  if(cur)morph(cur,nn);else{$('app').innerHTML='';$('app').appendChild(nn)}
+  bindBoard();
+  const cn=(G.chat||[]).length;if(cn!==chatShown){chatShown=cn;document.querySelectorAll('.chat').forEach(c=>c.scrollTop=c.scrollHeight)}
+  newPieces.forEach(k=>seenPieces.add(k));newPieces=[];
+  prevHand={v,hand:{...P.hand}};
+}
+
+// ================= SCREENS =================
+const TOPTS=[[0,'Off'],[60,'1 min'],[120,'2 min'],[180,'3 min'],[300,'5 min']];
+function timerSel(){return `<span>⏱ Turn timer</span><select onchange="timerSec=+this.value;localStorage.setItem('il_timer',timerSec);mode==='host'&&sendLobby()">${TOPTS.map(([v,l])=>`<option value="${v}" ${v===timerSec?'selected':''}>${l}</option>`).join('')}</select>`}
+function homeHTML(){
+  const code=new URLSearchParams(location.search).get('room')||'';
+  if(!seats)seats=[{name:myName||'Player 1',bot:false},{name:'Bot Casey',bot:true},{name:'Bot Harlow',bot:true}];
+  const sv=loadSave();
+  return `<div class="wrap">
+  <div class="hero"><svg class="herorails" viewBox="0 0 900 260" preserveAspectRatio="none">${[40,110,180].map((y,i)=>`<path d="M-20 ${y+40} C 200 ${y-30}, 420 ${y+90}, 920 ${y-10}" stroke="rgba(255,255,255,.12)" stroke-width="10" fill="none" stroke-dasharray="26 10"/>`).join('')}</svg>
+    <div class="herotrain">🚂🚃🚃🚃</div><h1>Iron Lines</h1><p>Claim railways. Connect cities. Build the longest line in America.</p><p class="muted" style="color:#d9e6f0">Free · 2–5 players · online rooms or vs bots</p></div>
+  ${sv?`<div class="card" style="margin-bottom:14px;border-color:var(--gold)"><div class="row" style="justify-content:space-between"><div><h3 style="margin:0">👑 Your game is still going</h3><div class="muted">Room ${esc(sv.code)} · ${sv.G.players.length} players</div></div><div class="row"><button class="ghost sm" onclick="localStorage.removeItem('il_save');showHome()">Discard</button><button onclick="resumeHost(loadSave())">Resume game</button></div></div></div>`:''}
+  <div class="card" style="margin-bottom:14px"><div class="lbl" style="margin-top:0">Your name</div><input id="nm" maxlength="16" value="${esc(myName)}" placeholder="Your name" style="width:100%;max-width:320px" oninput="myName=this.value;localStorage.setItem('il_name',myName)"></div>
+  <div class="cards">
+  <div class="card"><h3>🌐 Play online</h3><p class="muted">Create a room and send the link — no accounts. Fill empty seats with bots.</p>
+    <button class="big" onclick="createRoom()">Create room</button>
+    <div class="row" style="margin-top:12px"><input id="code" placeholder="Room code" value="${esc(code)}" style="flex:1;min-width:120px;text-transform:uppercase"><button class="ghost" onclick="joinRoom($('code').value)">Join</button></div></div>
+  <div class="card"><h3>🤖 Play on this device</h3><p class="muted">Vs bots, or pass-and-play with friends.</p>
+    <div class="row"><span>Players</span><select onchange="setSeatCount(+this.value)">${[2,3,4,5].map(k=>`<option ${k===seats.length?'selected':''}>${k}</option>`).join('')}</select><span class="badge">${seats.length<=3?'Double routes: one side only':'All double routes open'}</span></div>
+    <div class="row" style="margin-top:8px">${timerSel()}</div>
+    <div>${seats.map((s,i)=>`<div class="row" style="margin-top:7px"><span class="av" style="width:26px;height:26px;font-size:11px;background:${PCOL[i]}">${i+1}</span><input value="${esc(s.name)}" maxlength="16" oninput="seats[${i}].name=this.value" style="flex:1;min-width:110px"><select onchange="seats[${i}].bot=this.value==='bot'"><option value="human" ${!s.bot?'selected':''}>Human</option><option value="bot" ${s.bot?'selected':''}>Bot</option></select></div>`).join('')}</div>
+    <button class="big" style="margin-top:14px" onclick="startLocal()">Start game</button></div>
+  </div>
+  <details class="card" style="margin-top:14px"><summary>How to play</summary>
+  <p class="muted" style="margin-top:10px">On your turn do <b>one</b> thing: <b>draw 2 train cards</b> (a face-up 🌈 locomotive counts as both), <b>claim a route</b> by paying cards matching its color and length (gray routes take any one color, locomotives are wild), or <b>draw 3 destination tickets</b> and keep at least 1.</p>
+  <table class="rules" style="margin-top:8px"><tr><td>Route length</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr><tr><td>Points</td><td>1</td><td>2</td><td>4</td><td>7</td><td>10</td><td>15</td></tr></table>
+  <p class="muted">Completed tickets add their points at the end; unfinished ones subtract them. The longest continuous line earns +10. When someone is down to 2 or fewer trains, everyone gets one final turn. In 2–3 player games only one side of a double route can be used.</p></details>
+  </div>`;
+}
+function showHome(){document.body.classList.remove('ingame');G=null;mode=null;ambient(false);$('app').innerHTML=homeHTML()}
+function setSeatCount(k){const names=['Bot Casey','Bot Harlow','Bot Morgan','Bot Quinn'];while(seats.length<k)seats.push({name:names[seats.length-1]||'Bot',bot:true});seats.length=k;$('app').innerHTML=homeHTML()}
+function beginGame(){cam={x:0,y:0,z:1};seenLog=null;seenChat=null;seenPieces=new Set();newPieces=[];prevHand=null;prevDone=null;winShown=false;lastPhase=null;uiClaim=null;uiKeep=null;uiHiT=null;if(SFX.on)ambient(true);play('join')}
+function startLocal(){
+  const cfg=seats.map((s,i)=>({name:(s.name||'').trim()||('Player '+(i+1)),bot:s.bot}));
+  mode='local';G=newGame(cfg,{timer:timerSec});lastV=Math.max(0,cfg.findIndex(c=>!c.bot));beginGame();afterChange();
+}
+// ----- online -----
+const TOK=localStorage.getItem('il_tok')||(()=>{const t=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('il_tok',t);return t})();
+let reconnecting=false,retryT=null,retries=0,hostRetry=0;
+function needName(){if(!(myName||'').trim()){toast('Enter your name first');$('nm')&&$('nm').focus();return true}return false}
+function setRoomURL(code){try{history.replaceState(null,'',location.pathname+'?room='+code)}catch(e){}}
+function hostPeer(onOpen){
+  peer=new Peer('ironlines-'+roomCode);
+  peer.on('open',()=>{hostRetry=0;onOpen&&onOpen();onOpen=null});
+  peer.on('connection',c=>{c.on('data',d=>hostMsg(c,d));c.on('close',()=>hostClose(c))});
+  peer.on('disconnected',()=>{try{peer.reconnect()}catch(e){}});
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id'&&hostRetry<20){hostRetry++;try{peer.destroy()}catch(_){}setTimeout(()=>hostPeer(onOpen),2500);return}
+    if(e.type==='peer-unavailable')return;toast('Connection error: '+e.type)});
+}
+function createRoom(){
+  if(needName())return;if(typeof Peer==='undefined'){toast('Online play could not load — check your connection');return}
+  roomCode=Array.from({length:5},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[rnd(32)]).join('');
+  hostPeer(()=>{mode='host';me=0;lobby=[{name:myName.trim(),bot:false,conn:null,tok:TOK}];setRoomURL(roomCode);renderLobby()});
+}
+function hostMsg(c,d){
+  if(!d||typeof d!=='object')return;
+  if(d.t==='join'){
+    const tok=String(d.tok||'');
+    if(G){
+      const i=lobby.findIndex(l=>!l.bot&&l.tok&&l.tok===tok);
+      if(i<=0){c.send({t:'err',m:'This game already started'});return}
+      const old=lobby[i].conn;lobby[i].conn=c;c._pid=i;if(old&&old!==c)try{old.close()}catch(_){}
+      const P=G.players[i];P.away=null;P.bot=false;pushLog(G,`🔌 ${P.name} reconnected`);play('join');afterChange();return;
+    }
+    const ex=lobby.findIndex(l=>l.tok&&l.tok===tok);
+    if(ex>0){const old=lobby[ex].conn;lobby[ex].conn=c;lobby[ex].name=String(d.name||'Player').slice(0,16);if(old&&old!==c)try{old.close()}catch(_){}sendLobby();renderLobby();return}
+    if(lobby.length>=5){c.send({t:'err',m:'Room is full'});return}
+    lobby.push({name:String(d.name||'Player').slice(0,16),bot:false,conn:c,tok});play('join');sendLobby();renderLobby();
+  }else if(d.t==='act'&&G){const pid=c._pid;if(pid==null||lobby[pid].conn!==c)return;const e=act(G,pid,d.a);if(e)c.send({t:'err',m:e});else afterChange()}
+}
+function hostClose(c){
+  if(!G){if(lobby.some(l=>l.conn===c)){lobby=lobby.filter(l=>l.conn!==c);sendLobby();renderLobby()}return}
+  const pid=c._pid;if(pid==null||lobby[pid].conn!==c)return;
+  lobby[pid].conn=null;const P=G.players[pid];
+  if(P&&!P.bot&&G.phase!=='over'){P.away=Date.now();pushLog(G,`📡 ${P.name} disconnected — waiting for them to rejoin`);afterChange()}
+}
+// a bot covers anyone gone longer than 60s; they get their seat back when they rejoin
+setInterval(()=>{if(!G||mode!=='host'||G.phase==='over')return;const now=Date.now();let ch=false;
+  G.players.forEach(p=>{if(p.away&&!p.bot&&now-p.away>60000){p.bot=true;pushLog(G,`🤖 A bot is covering for ${p.name} until they rejoin`);ch=true}});if(ch)afterChange()},2000);
+function sendLobby(){lobby.forEach((l,i)=>{if(l.conn&&l.conn.open)l.conn.send({t:'lobby',list:lobby.map(x=>({name:x.name,bot:x.bot})),you:i,code:roomCode,timer:timerSec})})}
+function broadcast(){lobby.forEach((l,i)=>{if(l.conn&&l.conn.open)l.conn.send({t:'state',s:G,you:i,now:Date.now()})})}
+function saveHost(){if(mode!=='host'||!G)return;try{localStorage.setItem('il_save',JSON.stringify({code:roomCode,G,lobby:lobby.map(l=>({name:l.name,bot:l.bot,tok:l.tok})),timerSec,t:Date.now()}))}catch(e){}}
+function loadSave(){try{const s=JSON.parse(localStorage.getItem('il_save')||'null');if(s&&s.G&&s.G.phase!=='over'&&Date.now()-s.t<6*3600e3)return s}catch(e){}return null}
+function resumeHost(sv){
+  if(typeof Peer==='undefined'){toast('Online play could not load — check your connection');return}
+  roomCode=sv.code;G=sv.G;timerSec=sv.timerSec;me=0;mode='host';lobby=sv.lobby.map(l=>({...l,conn:null}));
+  G.players.forEach((p,i)=>{if(i>0&&!lobby[i].bot&&!p.bot)p.away=Date.now()});G.tkey=null;
+  setRoomURL(roomCode);beginGame();pushLog(G,'👑 Host is back — game resumed');afterChange();hostPeer(()=>banner('Game resumed'));
+}
+function addBot(){if(lobby.length>=5)return;const names=['Bot Casey','Bot Harlow','Bot Morgan','Bot Quinn'];lobby.push({name:names.find(n=>!lobby.some(l=>l.name===n))||'Bot',bot:true,conn:null});sendLobby();renderLobby()}
+function removeBot(i){if(lobby[i]&&lobby[i].bot){lobby.splice(i,1);sendLobby();renderLobby()}}
+function startOnline(){
+  if(lobby.length<2){toast('Need at least 2 players');return}
+  lobby.forEach((l,i)=>{if(l.conn)l.conn._pid=i});
+  G=newGame(lobby.map(l=>({name:l.name,bot:l.bot})),{timer:timerSec});beginGame();afterChange();
+}
+function joinRoom(code,auto){
+  if(!auto&&needName())return;code=(code||'').trim().toUpperCase();if(!code){toast('Enter a room code');return}
+  if(typeof Peer==='undefined'){toast('Online play could not load — check your connection');return}
+  roomCode=code;setRoomURL(code);
+  if(!G)$('app').innerHTML=`<div class="wrap"><div class="card">Connecting to room ${esc(code)}…</div></div>`;
+  if(peer&&!peer.destroyed&&peer.open)return connectHost();
+  try{peer&&peer.destroy()}catch(e){}
+  peer=new Peer();
+  peer.on('open',()=>connectHost());
+  peer.on('disconnected',()=>{try{peer.reconnect()}catch(e){}});
+  peer.on('error',e=>{if(e.type==='peer-unavailable'){if(reconnecting||G)return scheduleRetry();toast('Room not found');localStorage.removeItem('il_joined');showHome();return}
+    if(reconnecting)return scheduleRetry();toast('Connection error: '+e.type)});
+}
+function connectHost(){
+  const c=peer.connect('ironlines-'+roomCode,{reliable:true});hostConn=c;
+  c.on('open',()=>{if(hostConn!==c)return;mode='client';reconnecting=false;retries=0;c.send({t:'join',name:(myName||'Player').trim(),tok:TOK});localStorage.setItem('il_joined',roomCode);if(G)render()});
+  c.on('data',d=>{if(hostConn===c)clientMsg(d)});
+  c.on('close',()=>{if(hostConn!==c)return;if(G&&G.phase==='over')return;reconnecting=true;if(G)render();scheduleRetry()});
+}
+function scheduleRetry(){clearTimeout(retryT);if(retries++>60){reconnecting=false;toast('Lost connection to the host');return}retryT=setTimeout(()=>joinRoom(roomCode,true),3000)}
+function clientMsg(d){
+  if(!d||typeof d!=='object')return;
+  if(d.t==='lobby'){if(lobby.length<d.list.length)play('join');lobby=d.list;me=d.you;roomCode=d.code;timerSec=d.timer||0;renderLobby()}
+  else if(d.t==='state'){const first=!G;G=d.s;me=d.you;if(d.now)clockOff=d.now-Date.now();if(first)beginGame();if(G.phase!==lastPhase)resetUI();render()}
+  else if(d.t==='err'){toast(d.m);if(!G&&/started|full/.test(d.m)){localStorage.removeItem('il_joined');setTimeout(showHome,1200)}}
+}
+// leaving
+function modal(title,body,buttons){
+  const m=document.createElement('div');m.id='modal';m.innerHTML=`<div class="pill modalbox"><h3>${title}</h3><p>${body}</p><div class="row" style="justify-content:flex-end">${buttons.map((b,i)=>`<button class="${b[1]}" data-i="${i}">${b[0]}</button>`).join('')}</div></div>`;
+  m.onclick=e=>{const b=e.target.closest('button');if(e.target===m){m.remove();return}if(!b)return;m.remove();buttons[+b.dataset.i][2]&&buttons[+b.dataset.i][2]()};
+  document.body.appendChild(m);
+}
+const hostActive=()=>mode==='host'&&G&&G.phase!=='over';
+let leaving=false;
+function leave(url){
+  if(hostActive())return modal('End the game for everyone?',"You're the host — the game runs in your browser. If you leave, <b>the game ends for everyone</b>.",[['Stay','ghost'],['Leave & end game','danger',()=>{leaving=true;localStorage.removeItem('il_save');location.href=url}]]);
+  if(mode==='client'&&G&&G.phase!=='over')return modal('Leave the game?','A bot will play for you. You can rejoin from the same link to take your seat back.',[['Stay','ghost'],['Leave','danger',()=>{leaving=true;location.href=url}]]);
+  location.href=url;
+}
+window.addEventListener('beforeunload',e=>{if(!leaving&&hostActive()){saveHost();e.preventDefault();e.returnValue='Leaving will end the game for everyone.';return e.returnValue}});
+function renderLobby(){
+  const link=location.origin+location.pathname+'?room='+roomCode;
+  $('app').innerHTML=`<div class="wrap"><div class="card"><h2>Room ${esc(roomCode)}</h2>
+  ${mode==='host'?`<p class="muted">Send this link to friends:</p><div class="row"><input readonly value="${esc(link)}" style="flex:1;min-width:200px" onclick="this.select()"><button class="ghost" onclick="navigator.clipboard.writeText('${esc(link)}');banner('Link copied')">Copy</button></div>`:'<p class="muted">Waiting for the host to start…</p>'}
+  <div class="lbl">Players (${lobby.length}/5)</div>
+  ${lobby.map((l,i)=>`<div class="row" style="margin:7px 0"><span class="av" style="width:30px;height:30px;font-size:12px;background:${PCOL[i]}">${esc(l.name[0]||'?')}</span><b>${esc(l.name)}</b>${l.bot?'<span class="badge">BOT</span>':''}${i===me?'<span class="badge">YOU</span>':''}${mode==='host'&&l.bot?` <button class="sm ghost" onclick="removeBot(${i})">✕</button>`:''}</div>`).join('')}
+  <div class="row" style="margin-top:12px">${mode==='host'?timerSel():`<span class="muted">⏱ Turn timer: ${(TOPTS.find(o=>o[0]===timerSec)||[0,'Off'])[1]}</span>`}</div>
+  ${mode==='host'?`<div class="row" style="margin-top:14px"><button class="ghost" onclick="addBot()" ${lobby.length>=5?'disabled':''}>+ Add bot</button><button onclick="startOnline()" ${lobby.length<2?'disabled':''}>Start game</button></div><p class="muted">Keep this tab open — your browser hosts the game.</p>`:''}
+  </div></div>`;
+}
+
+// ================= MAP =================
+const LAND='M40 32 L560 32 L585 40 L612 52 L650 50 L690 62 L716 104 L742 98 L760 122 L800 140 L838 128 L870 112 L905 84 L945 60 L985 66 L1000 106 L985 136 L975 160 L952 186 L930 230 L912 262 L918 300 L896 330 L884 362 L864 398 L848 430 L866 490 L902 552 L920 604 L908 632 L884 630 L862 584 L834 532 L800 520 L760 528 L728 546 L708 576 L674 584 L630 580 L606 600 L572 628 L540 612 L508 576 L476 556 L436 552 L404 542 L364 524 L300 522 L234 518 L170 508 L136 498 L104 456 L80 410 L54 352 L42 300 L34 232 L30 160 L36 92 Z';
+const LAKES=['M684 92 Q700 70 740 80 Q770 90 750 104 Q720 110 684 92Z','M700 128 Q712 150 708 186 Q700 200 694 182 Q690 150 700 128Z','M742 132 Q770 128 772 160 Q760 170 748 150Z','M790 172 Q830 160 842 176 Q822 190 794 184Z','M846 156 Q880 146 886 156 Q870 166 850 164Z'];
+const MOUNTS=[[150,250],[185,215],[230,330],[300,200],[330,240],[360,190],[300,330],[340,360],[200,300],[120,190],[420,200],[360,150],[270,420],[220,430]];
+const CARGB={red:['#ef6a60','#b72e25'],orange:['#ffab55','#cf6c10'],yellow:['#ffe27a','#d8aa16'],green:['#5cc477','#227f3d'],blue:['#62a0f2','#2356b0'],purple:['#b07ee6','#6a34a6'],black:['#5a5a66','#1b1b21'],white:['#ffffff','#d6d1c2'],loco:null};
+const DEFS=`
+<linearGradient id="landg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#efe3bf"/><stop offset=".55" stop-color="#e6d6a6"/><stop offset="1" stop-color="#dcc790"/></linearGradient>
+<pattern id="landtex" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="3" cy="4" r=".9" fill="#a08550" opacity=".22"/><circle cx="10" cy="10" r=".7" fill="#a08550" opacity=".18"/></pattern>
+<pattern id="wave" width="36" height="18" patternUnits="userSpaceOnUse"><path d="M0 9 Q4.5 5 9 9 T18 9" fill="none" stroke="#fff" stroke-width="1" opacity=".16"/></pattern>
+<filter id="sh" filterUnits="userSpaceOnUse" x="-3000" y="-3000" width="6000" height="6000"><feDropShadow dx="0" dy="1.6" stdDeviation="1.4" flood-color="#000" flood-opacity=".45"/></filter>
+<filter id="landsh" filterUnits="userSpaceOnUse" x="-3000" y="-3000" width="6000" height="6000"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#06223a" flood-opacity=".55"/></filter>
+<linearGradient id="rainbow" x1="0" x2="1"><stop offset="0" stop-color="#e0453b"/><stop offset=".2" stop-color="#f2a33a"/><stop offset=".4" stop-color="#f2d23a"/><stop offset=".6" stop-color="#3aa35c"/><stop offset=".8" stop-color="#3b74e0"/><stop offset="1" stop-color="#9156cc"/></linearGradient>`;
+let boardVB={w:1030,h:690,cx:503,cy:307};
+function isNew(k){if(seenPieces&&!seenPieces.has(k)){newPieces.push(k);return true}return false}
+function routeSlots(r){
+  const A=CITIES[r.a],B=CITIES[r.b],dx=B.x-A.x,dy=B.y-A.y,d=Math.hypot(dx,dy),ux=dx/d,uy=dy/d,nx=-uy,ny=ux,off=r.side*6.6,m=12,seg=(d-2*m)/r.len;
+  const ang=Math.atan2(dy,dx)*180/Math.PI;
+  return Array.from({length:r.len},(_,i)=>({x:A.x+ux*(m+seg*(i+.5))+nx*off,y:A.y+uy*(m+seg*(i+.5))+ny*off,w:Math.max(6,seg-3.2),ang}));
+}
+function claimableSet(s,v){
+  if(s.phase!=='main'||s.turn!==v)return new Set();const P=s.players[v];
+  return new Set(ROUTES.filter(r=>!routeBlocked(s,r,v)&&P.trains>=r.len&&payOptions(s,v,r.id).length).map(r=>r.id));
+}
+function mapSVG(s,v){
+  const can=claimableSet(s,v),P=s.players[v],hiT=uiHiT!=null?TICKETS[uiHiT]:null;
+  const hiC=new Set();if(hiT){hiC.add(hiT.a);hiC.add(hiT.b)}
+  if(P.pending)P.pending.forEach(t=>{hiC.add(TICKETS[t].a);hiC.add(TICKETS[t].b)});
+  let h=`<svg viewBox="-12 -38 1030 690" xmlns="http://www.w3.org/2000/svg"><defs>${DEFS}</defs><g id="cam" transform="${camTransform()}">`;
+  h+=`<rect x="-600" y="-500" width="2200" height="1700" fill="url(#wave)"/>`;
+  h+=`<path d="${LAND}" fill="url(#landg)" stroke="#b49a5e" stroke-width="3" stroke-linejoin="round" filter="url(#landsh)"/><path d="${LAND}" fill="url(#landtex)"/>`;
+  h+=`<path d="${LAND}" fill="none" stroke="rgba(120,200,230,.35)" stroke-width="10" stroke-linejoin="round" transform="translate(0,0)" style="mix-blend-mode:screen"/>`;
+  LAKES.forEach(d=>h+=`<path d="${d}" fill="#4c9cc9" stroke="#2f7aa6" stroke-width="1.2" opacity=".9"/>`);
+  h+=`<g transform="translate(40 600)" opacity=".85"><circle r="26" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/><path d="M0 -24 L5 0 L0 24 L-5 0Z" fill="#f2dc94"/><path d="M-24 0 L0 -5 L24 0 L0 5Z" fill="rgba(242,220,148,.6)"/><text y="-30" text-anchor="middle" font-size="10" font-weight="800" fill="#f2dc94">N</text></g>`;
+  MOUNTS.forEach(([x,y])=>h+=`<path d="M${x-11} ${y+7} L${x} ${y-8} L${x+11} ${y+7}Z" fill="#c9b27b" opacity=".55"/><path d="M${x-3.5} ${y-3} L${x} ${y-8} L${x+3.5} ${y-3}Z" fill="#fff" opacity=".7"/>`);
+  // routes
+  ROUTES.forEach(r=>{
+    const owner=s.routes[r.id],sl=routeSlots(r),blocked=owner==null&&r.twin!=null&&s.routes[r.twin]!=null&&(s.players.length<=3||s.routes[r.twin]===v);
+    const clk=owner==null&&s.turn===v&&s.phase==='main',isCan=can.has(r.id),sel=uiClaim&&uiClaim.r===r.id;
+    let g=`<g class="route ${clk?'clk':''} ${isCan?'can':''} ${sel?'sel':''} ${blocked?'blk':''}" data-r="${r.id}">`;
+    if(owner!=null){const c=s.players[owner].color,pop=isNew('r'+r.id);
+      const f=sl[0],l=sl[sl.length-1],ex=Math.cos(f.ang*Math.PI/180)*(f.w/2),ey=Math.sin(f.ang*Math.PI/180)*(f.w/2);
+      g+=`<line x1="${(f.x-ex).toFixed(1)}" y1="${(f.y-ey).toFixed(1)}" x2="${(l.x+ex).toFixed(1)}" y2="${(l.y+ey).toFixed(1)}" stroke="#1a1208" stroke-opacity=".7" stroke-width="17" stroke-linecap="round"/><line x1="${(f.x-ex).toFixed(1)}" y1="${(f.y-ey).toFixed(1)}" x2="${(l.x+ex).toFixed(1)}" y2="${(l.y+ey).toFixed(1)}" stroke="${c}" stroke-opacity=".35" stroke-width="16" stroke-linecap="round"/>`;
+      sl.forEach((q,i)=>{g+=`<g transform="translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${q.ang.toFixed(1)})"><g class="${pop?'car-pop':''}" style="${pop?`animation-delay:${i*90}ms`:''}" filter="url(#sh)"><rect x="${(-q.w/2).toFixed(1)}" y="-6.4" width="${q.w.toFixed(1)}" height="12.8" rx="3" fill="${c}" stroke="#111" stroke-width="1.6"/><rect x="${(-q.w/2+2.2).toFixed(1)}" y="-4.2" width="${Math.max(2,q.w-4.4).toFixed(1)}" height="3.4" rx="1.2" fill="rgba(255,255,255,.6)"/><rect x="${(-q.w/2+1.5).toFixed(1)}" y="2.4" width="${Math.max(2,q.w-3).toFixed(1)}" height="2.4" rx="1" fill="rgba(0,0,0,.25)"/><circle cx="${(-q.w/2+3.2).toFixed(1)}" cy="6.4" r="2" fill="#111"/><circle cx="${(q.w/2-3.2).toFixed(1)}" cy="6.4" r="2" fill="#111"/></g></g>`});
+    }else{
+      if(isCan||sel)sl.forEach(q=>{g+=`<rect class="glow" x="${(-q.w/2-2.2).toFixed(1)}" y="-7.4" width="${(q.w+4.4).toFixed(1)}" height="14.8" rx="4" transform="translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${q.ang.toFixed(1)})"/>`});
+      const fill=r.color==='gray'?'#a3a8ae':CCOL[r.color];
+      sl.forEach(q=>{g+=`<rect class="slot" x="${(-q.w/2).toFixed(1)}" y="-4.4" width="${q.w.toFixed(1)}" height="8.8" rx="1.6" fill="${fill}" fill-opacity=".92" stroke="rgba(40,28,12,.5)" stroke-width="1" transform="translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${q.ang.toFixed(1)})"/>`});
+    }
+    const A=CITIES[r.a],B=CITIES[r.b];g+=`<line class="hit" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" transform="translate(${(-(B.y-A.y)/Math.hypot(B.x-A.x,B.y-A.y)*r.side*6.6).toFixed(1)} ${((B.x-A.x)/Math.hypot(B.x-A.x,B.y-A.y)*r.side*6.6).toFixed(1)})"/>`;
+    h+=g+'</g>';
+  });
+  // cities
+  CITIES.forEach(c=>{const hi=hiC.has(c.id),done=hiT&&connected(s,v,hiT.a,hiT.b);
+    if(hi)h+=`<circle cx="${c.x}" cy="${c.y}" r="15" class="cring ${done?'done':''}"/>`;
+    h+=`<circle cx="${c.x}" cy="${c.y}" r="${hi?8.5:7}" fill="${hi?'#ffe48a':'#fffaf0'}" stroke="#3a2c1a" stroke-width="2.2" filter="url(#sh)"/><circle cx="${c.x}" cy="${c.y}" r="2.4" fill="#3a2c1a"/>`;
+    const L={b:[0,21,'middle'],t:[0,-13,'middle'],l:[-12,4,'end'],r:[12,4,'start'],ur:[9,-9,'start'],ul:[-9,-9,'end'],dr:[9,18,'start'],dl:[-9,18,'end']}[c.lab],tx=c.x+L[0],ty=c.y+L[1],an=L[2];
+    h+=`<text x="${tx}" y="${ty}" text-anchor="${an}" class="clab ${hi?'hi':''}">${esc(c.name)}</text>`;
+  });
+  return h+'</g></svg>';
+}
+// ----- camera -----
+let cam={x:0,y:0,z:1},drag=null,dragged=false;
+function camTransform(){const{cx,cy}=boardVB;return `translate(${cam.x.toFixed(1)} ${cam.y.toFixed(1)}) translate(${cx} ${cy}) scale(${cam.z.toFixed(3)}) translate(${-cx} ${-cy})`}
+function clampCam(){cam.z=Math.min(2.4,Math.max(.8,cam.z));const mx=boardVB.w*(.15+.45*(cam.z-1)),my=boardVB.h*(.15+.45*(cam.z-1));cam.x=Math.max(-mx,Math.min(mx,cam.x));cam.y=Math.max(-my,Math.min(my,cam.y))}
+function applyCam(){clampCam();const g=$('cam');if(g)g.setAttribute('transform',camTransform());const r=$('recenter');if(r)r.disabled=!cam.x&&!cam.y&&cam.z===1}
+function zoomBy(f){cam.z*=f;applyCam()}
+function recenter(){cam={x:0,y:0,z:1};applyCam()}
+function unitsPerPx(svg){const r=svg.getBoundingClientRect();return Math.max(boardVB.w/r.width,boardVB.h/r.height)}
+window.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;if(!drag.moved&&Math.hypot(dx,dy)<6)return;
+  drag.moved=true;document.body.classList.add('panning');cam.x=drag.x+dx*drag.u;cam.y=drag.y+dy*drag.u;applyCam()});
+window.addEventListener('pointerup',()=>{if(!drag)return;if(drag.moved){dragged=true;setTimeout(()=>dragged=false,60)}drag=null;document.body.classList.remove('panning')});
+function bindBoard(){
+  const svg=document.querySelector('#boardarea svg');if(!svg)return;
+  svg.onpointerdown=e=>{if(e.button>0)return;drag={sx:e.clientX,sy:e.clientY,x:cam.x,y:cam.y,u:unitsPerPx(svg),moved:false}};
+  svg.onwheel=e=>{e.preventDefault();zoomBy(e.deltaY<0?1.1:1/1.1)};
+  svg.ondblclick=e=>{if(!e.target.closest('[data-r]'))recenter()};
+  svg.onclick=e=>{if(dragged)return;const el=e.target.closest('[data-r]');if(!el){if(uiClaim){uiClaim=null;render()}return}routeClick(+el.dataset.r)};
+}
+function routeClick(rid){
+  const s=G,v=viewer(),r=ROUTES[rid];
+  if(s.routes[rid]!=null){toast(`Already claimed by ${s.players[s.routes[rid]].name}`);return}
+  if(s.turn!==v||s.phase!=='main'){toast(s.phase==='draw2'?'Finish drawing your second card first':'Wait for your turn');return}
+  const b=routeBlocked(s,r,v);if(b){toast(b);return}
+  if(s.players[v].trains<r.len){toast(`You only have ${s.players[v].trains} trains left`);return}
+  const opts=payOptions(s,v,rid);
+  if(!opts.length){toast(`Need ${r.len} ${r.color==='gray'?'cards of any one color':CNAME[r.color]+' cards'} — locomotives are wild`);return}
+  uiClaim={r:rid,opts,sel:0};render();
+}
+
+// ================= PANELS =================
+const carIcon=(c)=>`<svg viewBox="0 0 40 22" class="caricon"><rect x="2" y="3" width="36" height="13" rx="3" fill="${c==='white'||c==='yellow'?'rgba(0,0,0,.55)':'rgba(255,255,255,.85)'}"/><rect x="6" y="6" width="7" height="5" rx="1" fill="${c==='white'||c==='yellow'?'#fff8':'#0004'}"/><rect x="16.5" y="6" width="7" height="5" rx="1" fill="${c==='white'||c==='yellow'?'#fff8':'#0004'}"/><rect x="27" y="6" width="7" height="5" rx="1" fill="${c==='white'||c==='yellow'?'#fff8':'#0004'}"/><circle cx="10" cy="18" r="3" fill="${c==='white'||c==='yellow'?'#333':'#fff'}"/><circle cx="30" cy="18" r="3" fill="${c==='white'||c==='yellow'?'#333':'#fff'}"/></svg>`;
+function cardBG(c){return c==='loco'?'linear-gradient(135deg,#e0453b,#f2a33a 22%,#f2d23a 40%,#3aa35c 60%,#3b74e0 80%,#9156cc)':`linear-gradient(155deg,${CARGB[c][0]},${CARGB[c][1]})`}
+function trainCard(c,n,extra='',cls=''){return `<div class="tcard ${cls} ${c}" ${extra} style="background:${cardBG(c)}">${c==='loco'?'<span class="loco">🚂</span>':carIcon(c)}${n!=null?`<span class="n">${n}</span>`:''}<span class="lb">${c==='loco'?'Loco':CNAME[c]}</span></div>`}
+function ticketCard(t,s,v,opts={}){
+  const T=TICKETS[t],done=opts.check&&connected(s,v,T.a,T.b);
+  return `<div class="ticket ${done?'done':''} ${opts.sel?'sel':''} ${uiHiT===t?'hi':''} ${opts.cls||''}" ${opts.click||''} onmouseenter="uiHiT=${t};render()" onmouseleave="uiHiT=null;render()">
+    <div class="tk-c">${esc(CITIES[T.a].name)}</div><div class="tk-arrow">⟶</div><div class="tk-c">${esc(CITIES[T.b].name)}</div><div class="tk-pts">${done?'✓ ':''}${T.pts}</div></div>`;
+}
+function promptHTML(s,v){
+  const P=s.players[v];let t='';
+  if(s.lastRound&&s.phase!=='over')t+=`<div class="pill prompt warnpill">🚨 Final round — ${s.lastRound.left} turn${s.lastRound.left>1?'s':''} left</div>`;
+  if(mode==='local'&&s.players.filter(p=>!p.bot).length>1&&actors(s).includes(v)&&s.phase!=='over')t+=`<div class="pill prompt">👋 Pass the device to <b style="color:${P.color}">${esc(P.name)}</b></div>`;
+  if(P.pending)t+=`<div class="pill prompt">🎫 Choose destination tickets — keep at least ${s.phase==='setup'?2:1}</div>`;
+  else if(s.turn===v&&s.phase==='main')t+=`<div class="pill prompt">Your turn: <b>draw 2 cards</b> · <b>claim a glowing route</b> · or <b>draw tickets</b></div>`;
+  else if(s.turn===v&&s.phase==='draw2')t+=`<div class="pill prompt">Draw one more card <span class="muted">(not a face-up 🌈)</span></div>`;
+  return t;
+}
+function bottomPanelHTML(s,v){
+  const P=s.players[v];
+  if(P.pending){const min=s.phase==='setup'?2:1;if(!uiKeep||uiKeep.src!==P.pending.join())uiKeep={src:P.pending.join(),sel:new Set(P.pending)};
+    const n=uiKeep.sel.size;
+    return `<div class="pill tradebox"><b>🎫 Destination tickets</b> <span class="muted">— tap to keep or return · keep at least ${min}</span>
+    <div class="tickets pend">${P.pending.map(t=>ticketCard(t,s,v,{sel:uiKeep.sel.has(t),cls:'pick',click:`onclick="toggleKeep(${t})"`})).join('')}</div>
+    <button ${n<min?'disabled':''} onclick="dispatch({type:'keepTickets',keep:[...uiKeep.sel]})">Keep ${n} ticket${n!==1?'s':''}</button></div>`}
+  if(uiClaim&&s.phase==='main'&&s.turn===v&&s.routes[uiClaim.r]==null){const r=ROUTES[uiClaim.r];const opts=payOptions(s,v,r.id);if(!opts.length){uiClaim=null;return ''}
+    if(uiClaim.sel>=opts.length)uiClaim.sel=0;const o=opts[uiClaim.sel];
+    return `<div class="pill tradebox"><div class="row" style="justify-content:space-between"><b>🚂 Claim ${esc(CITIES[r.a].name)} – ${esc(CITIES[r.b].name)}</b><button class="sm ghost" onclick="uiClaim=null;render()">✕</button></div>
+    <div class="muted" style="margin:4px 0 8px">${r.len} train${r.len>1?'s':''} · <b style="color:var(--gold2)">+${PTS[r.len]} points</b> · ${r.color==='gray'?'any one color':CNAME[r.color]}</div>
+    ${opts.length>1?`<div class="lbl">Pay with</div><div class="row">${opts.map((x,i)=>`<button class="ghost sm payopt ${i===uiClaim.sel?'on':''}" onclick="uiClaim.sel=${i};render()">${Object.entries(x.use).filter(([k,n])=>n).map(([k,n])=>`<span class="dot" style="background:${cardBG(k)}"></span>${n}`).join(' + ')}</button>`).join('')}</div>`:''}
+    <div class="hand" style="margin:10px 0">${Object.entries(o.use).filter(([k,n])=>n).map(([k,n])=>trainCard(k,n,'','mini')).join('')}</div>
+    <button onclick="const o=payOptions(G,viewer(),uiClaim.r)[uiClaim.sel];dispatch({type:'claim',r:uiClaim.r,color:o.color});uiClaim=null">Claim route</button></div>`}
+  return '';
+}
+function toggleKeep(t){if(uiKeep.sel.has(t))uiKeep.sel.delete(t);else uiKeep.sel.add(t);render()}
+function handHTML(s,v){
+  const P=s.players[v],same=prevHand&&prevHand.v===v,now=Date.now(),tot=handSize(P.hand);
+  const tk=P.tickets.slice().sort((a,b)=>{const da=connected(s,v,TICKETS[a].a,TICKETS[a].b),db=connected(s,v,TICKETS[b].a,TICKETS[b].b);return da-db||TICKETS[b].pts-TICKETS[a].pts});
+  let h=`<div class="dockbox" id="ticketbar"><div class="plbl">🎫 Your tickets <span class="muted">(${(P.tickets.filter(t=>connected(s,v,TICKETS[t].a,TICKETS[t].b))).length}/${P.tickets.length} done · hover to see on map)</span></div><div class="tickets">${tk.map(t=>ticketCard(t,s,v,{check:true})).join('')||'<span class="ph">No tickets yet</span>'}</div></div>`;
+  h+=`<div class="dockbox" id="handbar"><div class="hand"><div class="htotal" title="Train cards in hand"><b>${tot}</b><span>cards</span></div>`;
+  h+=[...COLORS,'loco'].map(c=>{const d=same?P.hand[c]-prevHand.hand[c]:0;if(d>0)gains[c]={n:d,until:now+1300};const gn=gains[c]&&gains[c].until>now?gains[c].n:0;
+    return trainCard(c,P.hand[c],`title="${CNAME[c]}"`,`${P.hand[c]?'':'zero'} ${gn?'bump':''}`).replace('</div>',`${gn?`<span class="plus">+${gn}</span>`:''}</div>`)}).join('');
+  return h+`</div><div class="muted handmeta">🚂 <b style="color:var(--gold2)">${P.trains}</b> trains left · ⭐ ${P.score} route pts</div></div>`;
+}
+function marketHTML(s,v){
+  const my=s.turn===v&&(s.phase==='main'||s.phase==='draw2'),second=s.phase==='draw2';
+  return `<div class="pill" id="market"><div class="row" style="justify-content:space-between"><div class="plbl">🚃 Train cards</div><div class="muted" style="font-size:.72em">${my?(second?'pick 1 more':'pick 2 · 🌈 counts as 2'):''}</div></div>
+  <div class="mkt">${s.market.map((c,i)=>c?trainCard(c,null,my&&!(second&&c==='loco')?`onclick="dispatch({type:'drawMarket',i:${i}})" title="Take ${CNAME[c]}"`:'',`mk ${my&&!(second&&c==='loco')?'pick':'off'}`):'<div class="tcard mk empty"></div>').join('')}
+  <div class="tcard mk deckcard ${my&&s.deck.length+s.discard.length?'pick':'off'}" ${my?`onclick="dispatch({type:'drawDeck'})"`:''} title="Draw from the deck"><span class="loco">🂠</span><span class="n">${s.deck.length}</span><span class="lb">Deck</span></div></div>
+  <button class="ghost tkbtn" ${s.turn===v&&s.phase==='main'&&s.tdeck.length?'':'disabled'} onclick="dispatch({type:'drawTickets'})">🎫 Draw destination tickets <span class="badge">${s.tdeck.length} left</span></button></div>`;
+}
+function statusText(s,v){
+  const nm=p=>p===v&&mode!=='local'?'You':esc(s.players[p].name);
+  if(s.phase==='setup')return 'Choosing tickets…';if(s.phase==='over')return `🏆 ${esc(s.players[s.winner].name)} wins!`;
+  const n=nm(s.turn);return n==='You'?'Your turn':`${n}'s turn`;
+}
+function statusHUD(s,v){const t=timeLeft();
+  return `<div class="pill status-pill" id="statuspill"><div style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><div class="status">${statusText(s,v)}</div>${t!=null?`<span id="timer" class="timer ${t<=15?'low':''}">⏱ ${fmtT(t)}</span>`:''}</div>${mode==='host'||mode==='client'?`<div class="muted" style="font-size:.72em;margin-top:2px">Room ${esc(roomCode)}${mode==='host'?' · 👑 you\'re hosting — keep this tab open':''}</div>`:''}</div></div>`}
+function playersHTML(s,v,compact){
+  const curP=s.phase==='setup'?-1:s.turn;
+  return s.players.map((p,i)=>{const av=`<div class="av ${compact?'sm':''}" style="background:${p.color}">${p.bot?'🤖':esc((p.name[0]||'?').toUpperCase())}</div>`;
+    if(compact)return `<div class="pchip ${i===curP?'cur':''}">${av}<div><div class="pn">${esc(p.name)}${p.away?' 📡':''}</div><div class="ps">⭐${p.score} 🚂${p.trains} 🃏${handSize(p.hand)}</div></div></div>`;
+    return `<div class="pcard ${i===curP?'cur':''}">${av}<div style="min-width:0"><div class="pn">${esc(p.name)}${i===v&&mode!=='local'?'<span class="badge">YOU</span>':''}${p.away?`<span class="badge warn">${p.bot?'🤖 bot covering':'📡 reconnecting'}</span>`:''}${s.phase==='setup'&&p.pending?'<span class="badge">choosing…</span>':''}</div>
+    <div class="ps"><span title="Trains left">🚂 ${p.trains}</span><span title="Train cards">🃏 ${handSize(p.hand)}</span><span title="Destination tickets">🎫 ${p.tickets.length}</span></div>
+    <div class="bar"><i style="width:${(p.trains/TRAINS*100).toFixed(0)}%;background:${p.color}"></i></div></div><div class="vpbig">${p.score}<small>PTS</small></div></div>`}).join('');
+}
+function tabsHTML(s,v){
+  const chatN=(s.chat||[]).length;if(uiTab==='chat')chatSeenTab=chatN;const unread=chatN-chatSeenTab;
+  const body=uiTab==='chat'?`<div class="tabbody chat" id="chatlog">${(s.chat||[]).slice(-60).map(m=>`<div><b style="color:${s.players[m.p].color}">${esc(s.players[m.p].name)}</b> ${esc(m.t)}</div>`).join('')||'<div class="muted">Say hi 👋</div>'}</div>
+    <form class="row" style="flex-wrap:nowrap;margin-top:8px" onsubmit="sendChat();return false"><input id="chatin" placeholder="Message…" maxlength="200" autocomplete="off" style="flex:1;min-width:0"><button class="sm">Send</button></form>`
+   :`<div class="tabbody log">${s.log.slice(-60).reverse().map(l=>`<div>${esc(l)}</div>`).join('')}</div>`;
+  return `<div class="tabbar"><button class="${uiTab==='log'?'':'ghost'} sm" onclick="uiTab='log';render()">📜 Log</button><button class="${uiTab==='chat'?'':'ghost'} sm" onclick="uiTab='chat';render();document.querySelectorAll('.chat').forEach(c=>c.scrollTop=c.scrollHeight);setTimeout(()=>$('chatin')&&$('chatin').focus(),0)">💬 Chat${unread>0?` <span class="dotn">${unread}</span>`:''}</button></div>${body}`;
+}
+function sendChat(){const i=$('chatin');if(!i)return;const t=i.value.trim();if(!t)return;i.value='';dispatch({type:'chat',text:t})}
+function finalHTML(s){
+  if(s.phase!=='over')return '';const order=s.players.map((p,i)=>i).sort((a,b)=>s.final[b].total-s.final[a].total);
+  return `<div class="winwrap"><div class="pill winbox"><div style="font-size:2.6em">🏆</div><h2>${esc(s.players[s.winner].name)} wins!</h2>
+  <table class="score"><tr><th></th><th>Routes</th><th>Tickets ✓</th><th>Tickets ✗</th><th>Longest</th><th>Total</th></tr>
+  ${order.map(i=>{const f=s.final[i],p=s.players[i];return `<tr class="${i===s.winner?'win':''}"><td><span class="av xs" style="background:${p.color}">${esc(p.name[0]||'?')}</span> ${esc(p.name)}</td><td>${f.routes}</td><td class="ok">+${f.plus} <small>(${f.done.length})</small></td><td class="no">−${f.minus} <small>(${f.failed.length})</small></td><td>${f.longest?'+10':'—'} <small>(${f.len})</small></td><td><b>${f.total}</b></td></tr>`}).join('')}</table>
+  <div class="row" style="justify-content:center;margin-top:14px"><button class="ghost" onclick="this.closest('.winwrap').style.display='none'">View map</button><button onclick="location.href=location.pathname">Play again</button></div></div></div>`;
+}
+function gameHTML(v){
+  const s=G,unread=(s.chat||[]).length-chatSeenTab;
+  return `<div id="game">
+   <div id="mainc">
+    <div id="boardarea">${mapSVG(s,v)}
+      <div class="hud" id="hud-tl">${statusHUD(s,v)}</div>
+      <button class="hud fab" id="chatfab" onclick="uiSheet=!uiSheet;render()">💬${unread>0&&uiTab!=='chat'?`<span class="dotn">${unread}</span>`:''}</button>
+      <div class="hud" id="mapctl"><button class="ghost" title="Zoom in" onclick="zoomBy(1.15)">＋</button><button class="ghost" title="Zoom out" onclick="zoomBy(1/1.15)">－</button><button class="ghost" id="recenter" title="Re-center (or double-click)" ${!cam.x&&!cam.y&&cam.z===1?'disabled':''} onclick="recenter()">⟲</button></div>
+      <div class="hud" id="hud-top">${mode==='client'&&reconnecting?'<div class="pill prompt warnpill">📡 Reconnecting to the host…</div>':''}${promptHTML(s,v)}</div>
+      <div class="hud" id="hud-bl">${bottomPanelHTML(s,v)}</div>
+      ${finalHTML(s)}
+    </div>
+    <div id="dock"><div id="mplayers">${playersHTML(s,v,true)}</div>${handHTML(s,v)}</div>
+   </div>
+   <div id="colR"><div class="pill" id="plist">${playersHTML(s,v,false)}</div>${marketHTML(s,v)}<div class="pill" id="tabs">${uiSheet?'':tabsHTML(s,v)}</div></div>
+   ${uiSheet?`<div id="sheet" onclick="if(event.target===this){uiSheet=false;render()}"><div class="box"><div class="row" style="justify-content:space-between"><b>Players</b><button class="sm ghost" onclick="uiSheet=false;render()">✕</button></div>${playersHTML(s,v,false)}<div id="tabs2">${tabsHTML(s,v)}</div></div></div>`:''}
+  </div>`;
+}
+(function boot(){
+  const code=(new URLSearchParams(location.search).get('room')||'').toUpperCase(),sv=loadSave();
+  if(code&&sv&&sv.code===code)return resumeHost(sv);
+  if(code&&localStorage.getItem('il_joined')===code&&myName)return joinRoom(code,true);
+  showHome();
+})();
+</script>
+</body>
+</html>
